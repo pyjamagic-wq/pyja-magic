@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS products (
   care_instructions TEXT,
   location VARCHAR(150) DEFAULT 'Atelier Principal',
   images TEXT[] DEFAULT ARRAY[]::TEXT[],
+  color_images JSONB DEFAULT '{}'::jsonb,
   is_active BOOLEAN DEFAULT TRUE,
   is_featured BOOLEAN DEFAULT FALSE,
   is_new BOOLEAN DEFAULT TRUE,
@@ -149,6 +150,10 @@ ALTER TABLE order_status_history DISABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_movements DISABLE ROW LEVEL SECURITY;
 ALTER TABLE wilayas DISABLE ROW LEVEL SECURITY;
 
--- 2. Ajouter la colonne images pour sauvegarder les photos de pyjamas si manquante :
+-- 2. Ajouter les colonnes photos (générales + par couleur) si manquantes :
 ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE products ADD COLUMN IF NOT EXISTS color_images JSONB DEFAULT '{}'::jsonb;
+
+-- 3. (Optionnel) Bucket Storage pour upload de fichiers :
+-- Dans Supabase → Storage → New bucket → nom: product-images → Public: ON
 `;

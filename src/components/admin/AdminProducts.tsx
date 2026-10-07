@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Plus,
   Edit,
@@ -18,6 +18,7 @@ import {
   Copy,
   ShieldAlert,
   ExternalLink,
+  Upload,
 } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import { Product, ProductVariant } from '../../types';
@@ -25,6 +26,22 @@ import { formatPrice } from '../../utils/formatters';
 import { testSupabaseConnection } from '../../services/supabase/supabaseClient';
 import { SUPABASE_RLS_FIX_SQL } from '../../data/sqlSchemaString';
 import { generateUUID } from '../../services/storage/store';
+import { uploadProductImage } from '../../utils/uploadImage';
+
+const DEFAULT_SIZES = [
+  { sizeId: 's', sizeName: 'S' },
+  { sizeId: 'm', sizeName: 'M' },
+  { sizeId: 'l', sizeName: 'L' },
+];
+
+function slugifyColor(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || `color-${Date.now()}`;
+}
 
 export const AdminProducts: React.FC = () => {
   const { products, saveProduct, deleteProduct, clearAllProducts, loadProductsFromSupabase } = useStore();
@@ -49,10 +66,23 @@ export const AdminProducts: React.FC = () => {
   const [location, setLocation] = useState('');
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [colorImages, setColorImages] = useState<Record<string, string[]>>({});
+  const [colorUrlInputs, setColorUrlInputs] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState(false);
+  const [newColorName, setNewColorName] = useState('');
+  const [newColorHex, setNewColorHex] = useState('#BE395D');
   const [isFeatured, setIsFeatured] = useState(true);
   const [isNew, setIsNew] = useState(true);
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
+
+  const uniqueColors = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; hex: string }>();
+    variants.forEach((v) => {
+      map.set(v.colorId, { id: v.colorId, name: v.colorName, hex: v.colorHex });
+    });
+    return Array.from(map.values());
+  }, [variants]);
 
   const categories = [
     'Pyjamas satin',
@@ -74,7 +104,11 @@ export const AdminProducts: React.FC = () => {
     setMaterial('95% Satin Soie Luxe, 5% Élasthanne');
     setCareInstructions('Lavage délicat à 30°C.');
     setLocation('Étagère Satin A1');
-    setImages(['https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80']);
+    setImages([]);
+    setColorImages({});
+    setColorUrlInputs({});
+    setNewColorName('');
+    setNewColorHex('#BE395D');
     setIsFeatured(true);
     setIsNew(true);
     setIsBestSeller(false);
@@ -139,6 +173,10 @@ export const AdminProducts: React.FC = () => {
     setCareInstructions(prod.careInstructions);
     setLocation(prod.location || 'Atelier Principal');
     setImages([...prod.images]);
+    setColorImages(prod.colorImages ? { ...prod.colorImages } : {});
+    setColorUrlInputs({});
+    setNewColorName('');
+    setNewColorHex('#BE395D');
     setIsFeatured(prod.isFeatured);
     setIsNew(prod.isNew);
     setIsBestSeller(prod.isBestSeller);
@@ -153,6 +191,98 @@ export const AdminProducts: React.FC = () => {
 
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
+  };
+
+  const handleUploadGeneralImages = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        const res = await uploadProductImage(file);
+        uploaded.push(res.url);
+      }
+      setImages((prev) => [...prev, ...uploaded]);
+    } catch (err) {
+      setActionNotice(err instanceof Error ? err.message : 'Erreur upload image');
+      setTimeout(() => setActionNotice(null), 4000);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleUploadColorImages = async (colorId: string, files: FileList | null) => {
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        const res = await uploadProductImage(file);
+        uploaded.push(res.url);
+      }
+      setColorImages((prev) => ({
+        ...prev,
+        [colorId]: [...(prev[colorId] || []), ...uploaded],
+      }));
+    } catch (err) {
+      setActionNotice(err instanceof Error ? err.message : 'Erreur upload image');
+      setTimeout(() => setActionNotice(null), 4000);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleAddColorUrl = (colorId: string) => {
+    const url = (colorUrlInputs[colorId] || '').trim();
+    if (!url) return;
+    setColorImages((prev) => ({
+      ...prev,
+      [colorId]: [...(prev[colorId] || []), url],
+    }));
+    setColorUrlInputs((prev) => ({ ...prev, [colorId]: '' }));
+  };
+
+  const handleRemoveColorImage = (colorId: string, index: number) => {
+    setColorImages((prev) => ({
+      ...prev,
+      [colorId]: (prev[colorId] || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleAddColor = () => {
+    const name = newColorName.trim();
+    if (!name) return;
+    let colorId = slugifyColor(name);
+    if (variants.some((v) => v.colorId === colorId)) {
+      colorId = `${colorId}-${Date.now().toString().slice(-4)}`;
+    }
+    const hex = newColorHex || '#BE395D';
+    const newVariants: ProductVariant[] = DEFAULT_SIZES.map((s) => ({
+      id: generateUUID(),
+      productId: '',
+      sizeId: s.sizeId,
+      sizeName: s.sizeName,
+      colorId,
+      colorName: name,
+      colorHex: hex,
+      sku: `PJM-${colorId.toUpperCase().slice(0, 6)}-${s.sizeName}`,
+      stockQuantity: 10,
+      lowStockThreshold: 3,
+      location: location || 'Atelier Principal',
+      isActive: true,
+    }));
+    setVariants((prev) => [...prev, ...newVariants]);
+    setColorImages((prev) => ({ ...prev, [colorId]: prev[colorId] || [] }));
+    setNewColorName('');
+  };
+
+  const handleRemoveColor = (colorId: string) => {
+    setVariants((prev) => prev.filter((v) => v.colorId !== colorId));
+    setColorImages((prev) => {
+      const next = { ...prev };
+      delete next[colorId];
+      return next;
+    });
   };
 
   const handleUpdateVariantStock = (vId: string, newStock: number) => {
@@ -223,12 +353,24 @@ export const AdminProducts: React.FC = () => {
       material,
       careInstructions,
       location: location.trim() || 'Atelier Principal',
-      images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80'],
+      images:
+        images.length > 0
+          ? images
+          : Object.values(colorImages).flat().length > 0
+            ? Object.values(colorImages).flat().slice(0, 1)
+            : ['https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80'],
+      colorImages: Object.fromEntries(
+        Object.entries(colorImages).filter(([, imgs]) => imgs.length > 0)
+      ),
       isActive: editingProduct ? editingProduct.isActive : true,
       isFeatured,
       isNew,
       isBestSeller,
-      variants: variants.map((v) => ({ ...v, productId: prodId })),
+      variants: variants.map((v) => ({
+        ...v,
+        productId: prodId,
+        image: colorImages[v.colorId]?.[0] || v.image,
+      })),
       createdAt: editingProduct ? editingProduct.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       rating: editingProduct?.rating || 5.0,
@@ -697,13 +839,36 @@ export const AdminProducts: React.FC = () => {
               {/* Photos Gallery */}
               <div className="bg-white p-5 rounded-2xl border border-[#F2E5E8] space-y-4">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#2D2024]">
-                  2. Images du Produit
+                  2. Images générales du produit
                 </h4>
+                <p className="text-[11px] text-[#70585F]">
+                  Photos par défaut (catalogue). Vous pouvez uploader vos fichiers ou coller un lien.
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  <label className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
+                    uploading ? 'bg-stone-200 text-stone-500' : 'bg-[#2D2024] text-white hover:bg-[#402E34]'
+                  }`}>
+                    <Upload className="w-3.5 h-3.5" />
+                    {uploading ? 'Upload…' : 'Choisir des photos'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={uploading}
+                      className="hidden"
+                      onChange={(e) => {
+                        handleUploadGeneralImages(e.target.files);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
 
                 <div className="flex gap-2">
                   <input
                     type="url"
-                    placeholder="URL de l'image (https://...)"
+                    placeholder="Ou coller une URL (https://...)"
                     value={imageUrlInput}
                     onChange={(e) => setImageUrlInput(e.target.value)}
                     className="flex-1 text-xs p-3 rounded-xl border border-[#EBDDE1] focus:outline-none focus:border-[#BE395D]"
@@ -733,10 +898,134 @@ export const AdminProducts: React.FC = () => {
                 </div>
               </div>
 
+              {/* Photos par couleur */}
+              <div className="bg-white p-5 rounded-2xl border border-[#F2E5E8] space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#2D2024]">
+                  3. Photos par couleur
+                </h4>
+                <p className="text-[11px] text-[#70585F]">
+                  Quand la cliente choisit une couleur, ces photos s’affichent (ex. rouge → pyjama rouge).
+                </p>
+
+                <div className="flex flex-wrap gap-2 items-end p-3 rounded-xl bg-[#FAF3F5] border border-[#F2E5E8]">
+                  <div className="flex-1 min-w-[140px]">
+                    <label className="block text-[10px] font-semibold text-[#70585F] mb-1">Nouvelle couleur</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Rouge, Noir…"
+                      value={newColorName}
+                      onChange={(e) => setNewColorName(e.target.value)}
+                      className="w-full text-xs p-2.5 rounded-xl border border-[#EBDDE1] focus:outline-none focus:border-[#BE395D]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[#70585F] mb-1">Teinte</label>
+                    <input
+                      type="color"
+                      value={newColorHex}
+                      onChange={(e) => setNewColorHex(e.target.value)}
+                      className="w-12 h-10 rounded-lg border border-[#EBDDE1] cursor-pointer bg-white"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddColor}
+                    className="inline-flex items-center gap-1.5 bg-[#BE395D] text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-[#9E2B4B]"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Ajouter couleur
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {uniqueColors.map((color) => (
+                    <div key={color.id} className="rounded-xl border border-[#F2E5E8] p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-5 h-5 rounded-full border border-black/15"
+                            style={{ backgroundColor: color.hex }}
+                          />
+                          <span className="text-xs font-bold text-[#2D2024]">{color.name}</span>
+                        </div>
+                        {uniqueColors.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveColor(color.id)}
+                            className="text-[10px] font-semibold text-red-600 hover:underline"
+                          >
+                            Retirer couleur
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <label className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold cursor-pointer ${
+                          uploading ? 'bg-stone-100 text-stone-400' : 'bg-[#FAF3F5] text-[#BE395D] hover:bg-[#F6E4E9]'
+                        }`}>
+                          <Upload className="w-3 h-3" />
+                          Upload photo {color.name}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            disabled={uploading}
+                            className="hidden"
+                            onChange={(e) => {
+                              handleUploadColorImages(color.id, e.target.files);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                        <div className="flex flex-1 gap-1.5 min-w-[200px]">
+                          <input
+                            type="url"
+                            placeholder="Ou URL…"
+                            value={colorUrlInputs[color.id] || ''}
+                            onChange={(e) =>
+                              setColorUrlInputs((prev) => ({ ...prev, [color.id]: e.target.value }))
+                            }
+                            className="flex-1 text-[11px] p-2 rounded-lg border border-[#EBDDE1] focus:outline-none focus:border-[#BE395D]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleAddColorUrl(color.id)}
+                            className="px-3 rounded-lg bg-[#2D2024] text-white text-[11px] font-semibold"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {(colorImages[color.id] || []).map((img, idx) => (
+                          <div
+                            key={idx}
+                            className="relative w-20 h-24 rounded-lg overflow-hidden border border-[#EBDDE1]"
+                          >
+                            <img src={img} alt="" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveColorImage(color.id, idx)}
+                              className="absolute top-1 right-1 p-0.5 bg-red-600 text-white rounded-full"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        ))}
+                        {(colorImages[color.id] || []).length === 0 && (
+                          <span className="text-[10px] text-[#A69398]">Aucune photo pour cette couleur</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Variants and Stock Matrix */}
               <div className="bg-white p-5 rounded-2xl border border-[#F2E5E8] space-y-4">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#2D2024]">
-                  3. Gestion des Variantes (Tailles / Couleurs / Stocks / Emplacements)
+                  4. Gestion des Variantes (Tailles / Couleurs / Stocks / Emplacements)
                 </h4>
 
                 <div className="overflow-x-auto rounded-xl border border-[#F2E5E8]">

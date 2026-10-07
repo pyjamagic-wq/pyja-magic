@@ -54,6 +54,8 @@ export interface Product {
   careInstructions: string;
   location?: string; // Emplacement par défaut en stock
   images: string[];
+  /** Photos par couleur (clé = colorId). Prioritaires quand le client choisit une couleur. */
+  colorImages?: Record<string, string[]>;
   isActive: boolean;
   isFeatured: boolean;
   isNew: boolean;

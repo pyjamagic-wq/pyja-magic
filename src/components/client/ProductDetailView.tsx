@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Product, ProductVariant } from '../../types';
 import { formatPrice } from '../../utils/formatters';
+import { getImagesForColor, getPrimaryImageForColor } from '../../utils/productImages';
 import { useStore } from '../../hooks/useStore';
 import { SizeGuideModal } from './SizeGuideModal';
 
@@ -54,14 +55,6 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
-  // Record this product in recently viewed
-  React.useEffect(() => {
-    recordRecentlyViewed(product.id);
-    setActiveImage(product.images[0] || '');
-    setQuantity(1);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [product.id]);
-
   // Extract unique sizes and colors available on this product
   const availableSizes = useMemo(() => {
     const map = new Map<string, string>();
@@ -85,6 +78,28 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
     availableSizes[0]?.id || ''
   );
 
+  const galleryImages = useMemo(
+    () => getImagesForColor(product, selectedColorId),
+    [product, selectedColorId]
+  );
+
+  // Record this product in recently viewed + reset selection
+  React.useEffect(() => {
+    recordRecentlyViewed(product.id);
+    const firstColor = availableColors[0]?.id || '';
+    setSelectedColorId(firstColor);
+    setSelectedSizeId(availableSizes[0]?.id || '');
+    setActiveImage(getImagesForColor(product, firstColor)[0] || '');
+    setQuantity(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [product.id]);
+
+  // Changer la galerie quand la couleur change
+  React.useEffect(() => {
+    const imgs = getImagesForColor(product, selectedColorId);
+    if (imgs.length) setActiveImage(imgs[0]);
+  }, [selectedColorId, product]);
+
   // Find exact active variant
   const currentVariant: ProductVariant | undefined = useMemo(() => {
     return product.variants.find(
@@ -94,7 +109,6 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
 
   const variantStock = currentVariant ? currentVariant.stockQuantity : 0;
   const isVariantOutOfStock = variantStock === 0;
-  const isLowStock = variantStock > 0 && variantStock <= (currentVariant?.lowStockThreshold ?? 3);
 
   const isFavorited = wishlist.includes(product.id);
 
@@ -123,7 +137,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
       productId: product.id,
       variantId: currentVariant.id,
       productName: product.name,
-      productImage: product.images[0],
+      productImage: getPrimaryImageForColor(product, currentVariant.colorId),
       sizeName: currentVariant.sizeName,
       colorName: currentVariant.colorName,
       colorHex: currentVariant.colorHex,
@@ -221,10 +235,10 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
             </button>
           </div>
 
-          {/* Thumbnails */}
-          {product.images.length > 1 && (
+          {/* Thumbnails (selon couleur) */}
+          {galleryImages.length > 1 && (
             <div className="flex gap-3 overflow-x-auto pb-2">
-              {product.images.map((img, idx) => (
+              {galleryImages.map((img, idx) => (
                 <button
                   key={idx}
                   onClick={() => setActiveImage(img)}
@@ -371,7 +385,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                   >
                     <span>{size.name}</span>
                     <span className="text-[9px] font-normal opacity-75">
-                      {isOut ? 'Épuisé' : `${stock} dispo`}
+                      {isOut ? 'Épuisé' : 'Disponible'}
                     </span>
                   </button>
                 );
@@ -384,17 +398,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
             {isVariantOutOfStock ? (
               <span className="text-stone-600 font-semibold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-stone-500" />
-                Cette taille/couleur est épuisée. Choisissez une autre option.
-              </span>
-            ) : isLowStock ? (
-              <span className="text-[#D9534F] font-semibold flex items-center gap-2 animate-pulse">
-                <AlertCircle className="w-4 h-4 text-[#D9534F]" />
-                ⚠️ Vite ! Plus que {variantStock} disponible(s) en stock !
+                Épuisé — choisissez une autre taille ou couleur.
               </span>
             ) : (
               <span className="text-emerald-700 font-semibold flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-600" />
-                En stock ({variantStock} pièces disponibles pour expédition immédiate)
+                Disponible
               </span>
             )}
           </div>

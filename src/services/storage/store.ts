@@ -228,7 +228,7 @@ class StoreService {
     if (requestedTotal > variant.stockQuantity) {
       return {
         success: false,
-        message: `Stock insuffisant. Seulement ${variant.stockQuantity} disponible(s) pour cette taille/couleur.`,
+        message: `Stock insuffisant pour cette taille/couleur.`,
       };
     }
 
@@ -376,7 +376,7 @@ class StoreService {
       if (variant.stockQuantity < item.quantity) {
         return {
           success: false,
-          message: `Stock insuffisant pour "${item.productName}" en ${item.sizeName} / ${item.colorName}. Restant: ${variant.stockQuantity}`,
+          message: `Stock insuffisant pour "${item.productName}" en ${item.sizeName} / ${item.colorName}.`,
         };
       }
     }
@@ -865,15 +865,28 @@ class StoreService {
         updated_at: new Date().toISOString(),
       };
 
-      // Tente d'enregistrer avec la colonne images si elle existe
+      // Tente d'enregistrer avec images + color_images si les colonnes existent
       const payloadWithImages = {
         ...basePayload,
         images: product.images && product.images.length > 0 ? product.images : [],
+        color_images: product.colorImages && Object.keys(product.colorImages).length > 0
+          ? product.colorImages
+          : {},
       };
 
       let { error: pErr } = await client.from('products').upsert(payloadWithImages, { onConflict: 'id' });
 
-      // Si la colonne images n'existe pas encore dans la table PostgreSQL, réessayer sans images
+      // Si color_images n'existe pas encore, réessayer avec images seules
+      if (pErr && (pErr.message.includes('color_images') || pErr.code === 'PGRST204')) {
+        const withoutColorImages = {
+          ...basePayload,
+          images: product.images && product.images.length > 0 ? product.images : [],
+        };
+        const retryColor = await client.from('products').upsert(withoutColorImages, { onConflict: 'id' });
+        pErr = retryColor.error;
+      }
+
+      // Si la colonne images n'existe pas encore, réessayer sans images
       if (pErr && (pErr.message.includes('images') || pErr.code === 'PGRST204')) {
         const retryResult = await client.from('products').upsert(basePayload, { onConflict: 'id' });
         pErr = retryResult.error;
@@ -972,6 +985,10 @@ class StoreService {
           images: Array.isArray(p.images)
             ? p.images
             : ['https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80'],
+          colorImages:
+            p.color_images && typeof p.color_images === 'object' && !Array.isArray(p.color_images)
+              ? (p.color_images as Record<string, string[]>)
+              : undefined,
           isActive: p.is_active !== false,
           isFeatured: Boolean(p.is_featured),
           isNew: Boolean(p.is_new),

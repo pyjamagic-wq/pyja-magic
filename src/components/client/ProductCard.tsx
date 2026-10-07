@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Heart, Eye, ShoppingBag, Sparkles } from 'lucide-react';
 import { Product } from '../../types';
 import { formatPrice } from '../../utils/formatters';
+import { getPrimaryImageForColor } from '../../utils/productImages';
 import { useStore } from '../../hooks/useStore';
 
 interface ProductCardProps {
@@ -16,7 +17,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onQuickView,
 }) => {
   const { wishlist, toggleWishlist } = useStore();
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [previewColorId, setPreviewColorId] = useState<string | null>(null);
 
   const isFavorited = wishlist.includes(product.id);
 
@@ -26,8 +27,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   // Extract unique colors for swatches
   const uniqueColors = Array.from(
-    new Map(product.variants.map((v) => [v.colorHex, { name: v.colorName, hex: v.colorHex }])).values()
+    new Map(
+      product.variants.map((v) => [v.colorId, { id: v.colorId, name: v.colorName, hex: v.colorHex }])
+    ).values()
   );
+
+  const displayImage =
+    getPrimaryImageForColor(product, previewColorId) || product.images[0] || '';
 
   const discountPercent =
     product.compareAtPrice && product.compareAtPrice > product.price
@@ -39,7 +45,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Image Container */}
       <div className="relative aspect-[3/4] bg-[#FAF3F5] overflow-hidden cursor-pointer" onClick={() => onSelectProduct(product)}>
         <img
-          src={product.images[currentImageIndex] || product.images[0]}
+          src={displayImage}
           alt={product.name}
           className={`w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105 ${
             isOutOfStock ? 'grayscale opacity-75' : ''
@@ -132,15 +138,27 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </p>
         </div>
 
-        {/* Color Swatches */}
+        {/* Color Swatches — survol = aperçu photo de la couleur */}
         {uniqueColors.length > 0 && (
           <div className="flex items-center gap-1.5 pt-1">
-            {uniqueColors.map((col, idx) => (
-              <span
-                key={idx}
-                className="w-3.5 h-3.5 rounded-full border border-black/15 shadow-2xs"
+            {uniqueColors.map((col) => (
+              <button
+                key={col.id}
+                type="button"
+                onMouseEnter={() => setPreviewColorId(col.id)}
+                onMouseLeave={() => setPreviewColorId(null)}
+                onFocus={() => setPreviewColorId(col.id)}
+                onBlur={() => setPreviewColorId(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPreviewColorId(col.id);
+                }}
+                className={`w-3.5 h-3.5 rounded-full border border-black/15 shadow-2xs transition-transform ${
+                  previewColorId === col.id ? 'scale-125 ring-1 ring-[#BE395D]' : ''
+                }`}
                 style={{ backgroundColor: col.hex }}
                 title={col.name}
+                aria-label={col.name}
               />
             ))}
             {uniqueColors.length > 1 && (
@@ -164,11 +182,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 </span>
               )}
             </div>
-            {totalStock > 0 && totalStock <= 5 && (
-              <span className="text-[10px] font-medium text-[#D9534F] block">
-                Plus que {totalStock} pièces !
-              </span>
-            )}
+            <span
+              className={`text-[10px] font-medium block ${
+                isOutOfStock ? 'text-stone-400' : 'text-emerald-700'
+              }`}
+            >
+              {isOutOfStock ? 'Épuisé' : 'Disponible'}
+            </span>
           </div>
 
           <button

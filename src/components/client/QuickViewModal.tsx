@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Heart, ShoppingBag, Eye, ArrowRight, Star } from 'lucide-react';
 import { Product } from '../../types';
 import { formatPrice } from '../../utils/formatters';
+import { getPrimaryImageForColor } from '../../utils/productImages';
 import { useStore } from '../../hooks/useStore';
 
 interface QuickViewModalProps {
@@ -24,7 +25,7 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
 
   // Set defaults
   const colors = Array.from(
-    new Map(product.variants.map((v) => [v.colorHex, { id: v.colorId, name: v.colorName, hex: v.colorHex }])).values()
+    new Map(product.variants.map((v) => [v.colorId, { id: v.colorId, name: v.colorName, hex: v.colorHex }])).values()
   );
   const sizes = Array.from(new Set(product.variants.map((v) => v.sizeName)));
 
@@ -37,6 +38,7 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
 
   const isFavorited = wishlist.includes(product.id);
   const stock = currentVariant?.stockQuantity || 0;
+  const previewImage = getPrimaryImageForColor(product, activeColor) || product.images[0];
 
   const handleQuickAdd = () => {
     if (!currentVariant || stock <= 0) return;
@@ -45,7 +47,7 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
       productId: product.id,
       variantId: currentVariant.id,
       productName: product.name,
-      productImage: product.images[0],
+      productImage: previewImage,
       sizeName: currentVariant.sizeName,
       colorName: currentVariant.colorName,
       colorHex: currentVariant.colorHex,
@@ -72,7 +74,7 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
           {/* Image */}
           <div className="aspect-[3/4] bg-[#FAF3F5] overflow-hidden">
             <img
-              src={product.images[0]}
+              src={previewImage}
               alt={product.name}
               className="w-full h-full object-cover"
             />
@@ -143,7 +145,7 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
 
               <div className="mt-3 text-[11px]">
                 {stock > 0 ? (
-                  <span className="text-emerald-700 font-semibold">✓ {stock} en stock</span>
+                  <span className="text-emerald-700 font-semibold">✓ Disponible</span>
                 ) : (
                   <span className="text-stone-400 font-semibold">Épuisé</span>
                 )}
