@@ -64,8 +64,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Selected wilaya
-  const selectedWilaya = activeWilayas.find((w) => w.id === selectedWilayaId) || activeWilayas[0];
+  // Selected wilaya with safe fallback
+  const defaultWilayaFallback = { id: 16, code: '16', name: 'Alger', deliveryFee: 600, stopDeskFee: 400, isActive: true };
+  const selectedWilaya = activeWilayas.find((w) => w.id === selectedWilayaId) || activeWilayas[0] || defaultWilayaFallback;
 
   // Filtered wilayas for search dropdown
   const filteredWilayas = useMemo(() => {
@@ -481,7 +482,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               )}
 
               <div className="flex justify-between">
-                <span>Frais de livraison ({selectedWilaya.name} - {deliveryType === 'stopdesk' ? 'Bureau' : 'Domicile'})</span>
+                <span>Frais de livraison ({selectedWilaya?.name || 'Algérie'} - {deliveryType === 'stopdesk' ? 'Bureau' : 'Domicile'})</span>
                 <span className="font-semibold text-[#2D2024]">
                   {deliveryFee === 0 ? 'GRATUIT' : formatPrice(deliveryFee)}
                 </span>

@@ -318,12 +318,25 @@ export default function App() {
         {currentView === 'faq' && <FaqSection />}
 
         {/* VIEW 6: ORDER CONFIRMATION */}
-        {currentView === 'confirmation' && confirmedOrder && (
-          <OrderConfirmationView
-            order={confirmedOrder}
-            onTrackOrder={handleTrackOrderFromConfirmation}
-            onContinueShopping={() => handleNavigate('catalog')}
-          />
+        {currentView === 'confirmation' && (
+          confirmedOrder ? (
+            <OrderConfirmationView
+              order={confirmedOrder}
+              onTrackOrder={handleTrackOrderFromConfirmation}
+              onContinueShopping={() => handleNavigate('catalog')}
+            />
+          ) : (
+            <div className="max-w-xl mx-auto py-20 px-4 text-center space-y-4">
+              <h2 className="text-2xl font-serif-luxury font-bold text-[#2D2024]">Aucune commande récente</h2>
+              <p className="text-xs text-[#70585F]">Vous n'avez pas de commande active à afficher.</p>
+              <button
+                onClick={() => handleNavigate('catalog')}
+                className="bg-[#BE395D] text-white text-xs font-bold uppercase py-3 px-6 rounded-full"
+              >
+                Retourner au catalogue
+              </button>
+            </div>
+          )
         )}
       </main>
 

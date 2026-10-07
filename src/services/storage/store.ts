@@ -359,78 +359,79 @@ class StoreService {
     couponCode?: string;
     items: CartItem[];
   }): Promise<{ success: boolean; order?: Order; message?: string }> {
-    if (!orderData.items || orderData.items.length === 0) {
-      return { success: false, message: 'Votre panier est vide.' };
-    }
-
-    // 1. ATOMIC VALIDATION: verify all stocks before decrementing
-    for (const item of orderData.items) {
-      const product = this.getProductById(item.productId);
-      if (!product) {
-        return { success: false, message: `Produit "${item.productName}" introuvable.` };
+    try {
+      if (!orderData.items || orderData.items.length === 0) {
+        return { success: false, message: 'Votre panier est vide.' };
       }
-      const variant = product.variants.find((v) => v.id === item.variantId);
-      if (!variant) {
-        return { success: false, message: `Variante (${item.sizeName}/${item.colorName}) introuvable.` };
-      }
-      if (variant.stockQuantity < item.quantity) {
-        return {
-          success: false,
-          message: `Stock insuffisant pour "${item.productName}" en ${item.sizeName} / ${item.colorName}.`,
-        };
-      }
-    }
 
-    // 2. Fetch Wilaya and Delivery Fee
-    const wilaya = this.wilayas.find((w) => w.id === orderData.wilayaId);
-    if (!wilaya) {
-      return { success: false, message: 'Wilaya invalide.' };
-    }
-
-    const subtotal = orderData.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-    // Shipping calculation
-    let deliveryFee = orderData.deliveryType === 'stopdesk'
-      ? (wilaya.stopDeskFee ?? Math.max(300, wilaya.deliveryFee - 200))
-      : wilaya.deliveryFee;
-
-    // Check free shipping threshold if configured
-    if (this.settings.freeShippingThreshold > 0 && subtotal >= this.settings.freeShippingThreshold) {
-      deliveryFee = 0;
-    }
-
-    // 3. Discount calculation
-    let discount = 0;
-    let validCouponCode = undefined;
-    if (orderData.couponCode) {
-      const couponCheck = this.validateCoupon(orderData.couponCode, subtotal);
-      if (couponCheck.valid) {
-        discount = couponCheck.discount;
-        validCouponCode = couponCheck.coupon?.code;
-        // increment coupon usage
-        const cIndex = this.coupons.findIndex((c) => c.code === couponCheck.coupon?.code);
-        if (cIndex > -1) {
-          this.coupons[cIndex].usageCount += 1;
-          saveStorage(STORAGE_KEYS.COUPONS, this.coupons);
+      // 1. ATOMIC VALIDATION: verify all stocks before decrementing
+      for (const item of orderData.items) {
+        const product = this.getProductById(item.productId);
+        if (!product) {
+          return { success: false, message: `Produit "${item.productName || 'sélectionné'}" introuvable.` };
+        }
+        const variant = (product.variants || []).find((v) => v.id === item.variantId);
+        if (!variant) {
+          return { success: false, message: `Variante (${item.sizeName || ''}/${item.colorName || ''}) introuvable.` };
+        }
+        if (variant.stockQuantity < item.quantity) {
+          return {
+            success: false,
+            message: `Stock insuffisant pour "${item.productName}" en ${item.sizeName} / ${item.colorName}.`,
+          };
         }
       }
-    }
 
-    const total = Math.max(0, subtotal - discount + deliveryFee);
+      // 2. Fetch Wilaya and Delivery Fee
+      const wilaya = this.wilayas.find((w) => w.id === orderData.wilayaId) || this.wilayas[0] || ALGERIA_WILAYAS[0];
 
-    // 4. Generate unique readable order number: e.g. PJM-8K42X9
-    const randomChars = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const orderNumber = `PJM-${randomChars}`;
+      const subtotal = orderData.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    const now = new Date().toISOString();
+      // Shipping calculation
+      let deliveryFee = orderData.deliveryType === 'stopdesk'
+        ? (wilaya.stopDeskFee ?? Math.max(300, (wilaya.deliveryFee || 600) - 200))
+        : (wilaya.deliveryFee || 600);
 
-    // 5. ATOMICALLY DEDUCT STOCKS & LOG MOVEMENTS
-    for (const item of orderData.items) {
-      const productIndex = this.products.findIndex((p) => p.id === item.productId);
-      if (productIndex > -1) {
-        const variantIndex = this.products[productIndex].variants.findIndex((v) => v.id === item.variantId);
-        if (variantIndex > -1) {
-          this.products[productIndex].variants[variantIndex].stockQuantity -= item.quantity;
+      // Check free shipping threshold if configured
+      if (this.settings.freeShippingThreshold > 0 && subtotal >= this.settings.freeShippingThreshold) {
+        deliveryFee = 0;
+      }
+
+      // 3. Discount calculation
+      let discount = 0;
+      let validCouponCode = undefined;
+      if (orderData.couponCode) {
+        const couponCheck = this.validateCoupon(orderData.couponCode, subtotal);
+        if (couponCheck.valid) {
+          discount = couponCheck.discount;
+          validCouponCode = couponCheck.coupon?.code;
+          // increment coupon usage
+          const cIndex = this.coupons.findIndex((c) => c.code === couponCheck.coupon?.code);
+          if (cIndex > -1) {
+            this.coupons[cIndex].usageCount += 1;
+            saveStorage(STORAGE_KEYS.COUPONS, this.coupons);
+          }
+        }
+      }
+
+      const total = Math.max(0, subtotal - discount + deliveryFee);
+
+      // 4. Generate unique readable order number: e.g. PJM-8K42X9
+      const randomChars = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const orderNumber = `PJM-${randomChars}`;
+
+      const now = new Date().toISOString();
+
+      // 5. ATOMICALLY DEDUCT STOCKS & LOG MOVEMENTS
+      for (const item of orderData.items) {
+        const productIndex = this.products.findIndex((p) => p.id === item.productId);
+        if (productIndex > -1 && this.products[productIndex].variants) {
+          const variantIndex = this.products[productIndex].variants.findIndex((v) => v.id === item.variantId);
+          if (variantIndex > -1) {
+            this.products[productIndex].variants[variantIndex].stockQuantity = Math.max(
+              0,
+              this.products[productIndex].variants[variantIndex].stockQuantity - item.quantity
+            );
 
           // Record stock movement
           const movement: InventoryMovement = {
@@ -515,6 +516,11 @@ class StoreService {
     }
 
     return { success: true, order };
+    } catch (err: unknown) {
+      console.error('placeOrder error:', err);
+      const msg = err instanceof Error ? err.message : 'Erreur imprévue lors de la commande.';
+      return { success: false, message: msg };
+    }
   }
 
   private async replicateOrderToSupabase(order: Order) {

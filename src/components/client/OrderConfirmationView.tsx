@@ -20,16 +20,32 @@ export const OrderConfirmationView: React.FC<OrderConfirmationViewProps> = ({
   useEffect(() => {
     // Launch festive elegant confetti
     try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#F6C1CB', '#BE395D', '#E5D3C5', '#FAF7F6'],
-      });
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#F6C1CB', '#BE395D', '#E5D3C5', '#FAF7F6'],
+        });
+      }
     } catch {
       // ignore
     }
   }, []);
+
+  if (!order) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-4">
+        <h2 className="font-serif-luxury text-2xl font-bold text-[#2D2024]">Commande non disponible</h2>
+        <button
+          onClick={onContinueShopping}
+          className="bg-[#BE395D] text-white py-3 px-6 rounded-full text-xs font-bold uppercase"
+        >
+          Retour à la boutique
+        </button>
+      </div>
+    );
+  }
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(order.orderNumber);
@@ -106,7 +122,7 @@ export const OrderConfirmationView: React.FC<OrderConfirmationViewProps> = ({
 
           <div className="pt-2 border-t border-[#EBDDE1] space-y-2">
             <p className="font-semibold text-[#2D2024]">Articles commandés :</p>
-            {order.items.map((it) => (
+            {(order.items || []).map((it) => (
               <div key={it.id} className="flex justify-between items-center text-[#70585F]">
                 <span>
                   {it.quantity}x {it.productName} ({it.sizeName} - {it.colorName})
