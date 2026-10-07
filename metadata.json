@@ -1,0 +1,6 @@
+{
+  "name": "PYJA MAGIC — Boutique E-Commerce Pyjamas Femmes Algérie",
+  "description": "Boutique en ligne premium algérienne de pyjamas et homewear élégants pour femmes. Vente et livraison 69 wilayas, suivi Yalidine, gestion de stock et paiement à la livraison.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
