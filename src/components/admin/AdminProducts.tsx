@@ -90,7 +90,15 @@ export const AdminProducts: React.FC = () => {
   const categories = [
     'Pyjamas satin',
     'Pyjamas coton',
-    'Ensembles',
+    'Pyjamas velours',
+    'Nuisettes & Déshabillés',
+    'Shortamas & Caracos',
+    'Peignoirs & Kimonos',
+    'Ensembles 3 & 4 Pièces',
+    'Chemises de nuit',
+    'Trouseau Mariée',
+    'Loungewear & Homewear',
+    'Polaire & Pilou Pilou',
     'Collection hiver',
     'Collection été',
   ];

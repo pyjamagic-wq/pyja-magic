@@ -33,15 +33,37 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
     }
   }, [initialCategory]);
 
-  const categories = [
+  const baseCategories = [
     { id: 'all', label: 'Toute la Collection' },
-    { id: 'Pyjamas satin', label: 'Pyjamas Satin' },
-    { id: 'Pyjamas coton', label: 'Pyjamas Coton' },
-    { id: 'Ensembles', label: 'Ensembles & Nuisettes' },
+    { id: 'Pyjamas satin', label: 'Pyjamas Satin & Soie' },
+    { id: 'Pyjamas coton', label: 'Pyjamas Coton Bio' },
+    { id: 'Pyjamas velours', label: 'Pyjamas Velours' },
+    { id: 'Nuisettes & Déshabillés', label: 'Nuisettes & Déshabillés' },
+    { id: 'Shortamas & Caracos', label: 'Shortamas & Caracos' },
+    { id: 'Peignoirs & Kimonos', label: 'Peignoirs & Kimonos' },
+    { id: 'Ensembles 3 & 4 Pièces', label: 'Ensembles 3 & 4 Pièces' },
+    { id: 'Chemises de nuit', label: 'Chemises de Nuit' },
+    { id: 'Trouseau Mariée', label: 'Trouseau Mariée' },
+    { id: 'Loungewear & Homewear', label: 'Loungewear & Homewear' },
+    { id: 'Polaire & Pilou Pilou', label: 'Polaire & Pilou' },
     { id: 'Collection hiver', label: 'Collection Hiver' },
     { id: 'Collection été', label: 'Collection Été' },
     { id: 'promotions', label: 'Promotions %' },
   ];
+
+  const categories = useMemo(() => {
+    const list = [...baseCategories];
+    const existingIds = new Set(list.map((c) => c.id.toLowerCase()));
+
+    products.forEach((p) => {
+      if (p.category && !existingIds.has(p.category.toLowerCase())) {
+        existingIds.add(p.category.toLowerCase());
+        list.splice(list.length - 1, 0, { id: p.category, label: p.category });
+      }
+    });
+
+    return list;
+  }, [products]);
 
   const allSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
