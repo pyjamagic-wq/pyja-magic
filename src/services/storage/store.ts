@@ -98,7 +98,13 @@ class StoreService {
       this.products = savedProducts;
     }
 
-    this.orders = loadStorage<Order[]>(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
+    const savedOrders = loadStorage<Order[]>(STORAGE_KEYS.ORDERS, []);
+    this.orders = savedOrders.filter(
+      (o) =>
+        !['ord-1', 'ord-2', 'PJM-8K42X9', 'PJM-3N91T2', 'PJM-3M91Y4'].includes(o.id) &&
+        !['PJM-8K42X9', 'PJM-3N91T2', 'PJM-3M91Y4'].includes(o.orderNumber)
+    );
+    saveStorage(STORAGE_KEYS.ORDERS, this.orders);
     this.wilayas = loadStorage<Wilaya[]>(STORAGE_KEYS.WILAYAS, ALGERIA_WILAYAS);
     this.coupons = loadStorage<Coupon[]>(STORAGE_KEYS.COUPONS, INITIAL_COUPONS);
     this.reviews = loadStorage<Review[]>(STORAGE_KEYS.REVIEWS, INITIAL_REVIEWS);
@@ -672,11 +678,9 @@ class StoreService {
         };
       });
 
-      if (mappedOrders.length > 0) {
-        this.orders = mappedOrders;
-        saveStorage(STORAGE_KEYS.ORDERS, this.orders);
-        this.notify();
-      }
+      this.orders = mappedOrders;
+      saveStorage(STORAGE_KEYS.ORDERS, this.orders);
+      this.notify();
 
       return { success: true, count: mappedOrders.length };
     } catch (err: unknown) {
