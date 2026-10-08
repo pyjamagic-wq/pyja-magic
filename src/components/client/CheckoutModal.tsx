@@ -62,20 +62,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Filtered wilayas for search dropdown (Hook placed before early return)
+  const filteredWilayas = useMemo(() => {
+    if (!wilayaSearch.trim()) return activeWilayas;
+    const q = wilayaSearch.toLowerCase();
+    return (activeWilayas || []).filter(
+      (w) => (w.name || '').toLowerCase().includes(q) || (w.code || '').includes(q)
+    );
+  }, [activeWilayas, wilayaSearch]);
+
   if (!isOpen) return null;
 
   // Selected wilaya with safe fallback
   const defaultWilayaFallback = { id: 16, code: '16', name: 'Alger', deliveryFee: 600, stopDeskFee: 400, isActive: true };
   const selectedWilaya = activeWilayas.find((w) => w.id === selectedWilayaId) || activeWilayas[0] || defaultWilayaFallback;
-
-  // Filtered wilayas for search dropdown
-  const filteredWilayas = useMemo(() => {
-    if (!wilayaSearch.trim()) return activeWilayas;
-    const q = wilayaSearch.toLowerCase();
-    return activeWilayas.filter(
-      (w) => w.name.toLowerCase().includes(q) || w.code.includes(q)
-    );
-  }, [activeWilayas, wilayaSearch]);
 
   // Calculations
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
