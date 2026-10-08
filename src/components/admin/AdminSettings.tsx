@@ -108,7 +108,7 @@ export const AdminSettings: React.FC = () => {
         </div>
       )}
 
-      {/* SECTION SUPABASE GUIDE & CONFIGURATION */}
+      {/* SECTION SUPABASE CONFIGURATION */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#F2E5E8] shadow-2xs space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#F2E5E8]">
           <div className="flex items-center gap-3">
@@ -117,10 +117,10 @@ export const AdminSettings: React.FC = () => {
             </div>
             <div>
               <h3 className="font-serif-luxury text-lg font-bold text-[#2D2024]">
-                Connexion Supabase ("Superbase")
+                Base de données Supabase
               </h3>
               <p className="text-xs text-[#70585F]">
-                Comment héberger et synchroniser vos données sur votre base de données PostgreSQL gratuite.
+                Synchronisation cloud en temps réel pour vos produits et vos commandes.
               </p>
             </div>
           </div>
@@ -131,45 +131,9 @@ export const AdminSettings: React.FC = () => {
                 ? 'bg-emerald-100 text-emerald-800'
                 : 'bg-stone-100 text-stone-600'
             }`}>
-              {isSupabaseConfigured || (supabaseUrl && supabaseAnonKey) ? '✓ Supabase Actif' : '● Mode Local Réactif'}
+              {isSupabaseConfigured || (supabaseUrl && supabaseAnonKey) ? '✓ Supabase Connecté' : '● Mode Local'}
             </span>
           </div>
-        </div>
-
-        {/* 5-Step Visual Guide */}
-        <div className="space-y-3 bg-[#FAF8F8] p-5 rounded-2xl border border-[#F2E5E8] text-xs">
-          <h4 className="font-bold text-xs uppercase tracking-wider text-[#2D2024] flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#BE395D]" />
-            Guide pas à pas pour connecter Supabase en 2 minutes :
-          </h4>
-
-          <ol className="space-y-2.5 list-decimal list-inside text-[#523F44] leading-relaxed">
-            <li>
-              Rendez-vous sur <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-[#BE395D] font-bold underline inline-flex items-center gap-1">supabase.com <ExternalLink className="w-3 h-3 inline" /></a> et créez un compte gratuit si ce n'est pas déjà fait.
-            </li>
-            <li>
-              Cliquez sur <strong>"New Project"</strong> et nommez-le <strong>"Pyja Magic"</strong> avec un mot de passe de base de données de votre choix.
-            </li>
-            <li>
-              Dans le menu latéral gauche de Supabase, cliquez sur l'onglet <strong>"SQL Editor"</strong>.
-            </li>
-            <li>
-              Cliquez sur le bouton ci-dessous pour copier le script SQL préparé, collez-le dans le SQL Editor de Supabase et cliquez sur le bouton vert <strong>"RUN"</strong> :
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleCopySqlScript}
-                  className="bg-[#2D2024] hover:bg-[#3E2D32] text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow-xs transition-colors"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>{sqlCopied ? 'Code SQL copié avec succès ! ✓' : 'Copier le script SQL complet (schema.sql)'}</span>
-                </button>
-              </div>
-            </li>
-            <li>
-              Dans Supabase, allez dans <strong>Project Settings &gt; API</strong> et copiez votre <strong>Project URL</strong> ainsi que votre clé <strong>anon (public)</strong>, puis collez-les dans les champs ci-dessous :
-            </li>
-          </ol>
         </div>
 
         {/* Supabase URL and Anon Key inputs */}
@@ -229,42 +193,8 @@ export const AdminSettings: React.FC = () => {
                 )}
                 <span className="font-medium">{testResult.message}</span>
               </div>
-              {testResult.rlsBlocked && (
-                <button
-                  type="button"
-                  onClick={handleCopyRlsFix}
-                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-xs shrink-0"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>{rlsFixCopied ? 'Script copié !' : 'Copier le script SQL de déblocage'}</span>
-                </button>
-              )}
             </div>
           )}
-        </div>
-
-        {/* Problème d'écriture RLS : Card explicative */}
-        <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-xs text-amber-900 space-y-2">
-          <div className="flex items-center gap-2 font-bold text-amber-800">
-            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>Vos produits ne s'affichent pas dans Supabase après l'enregistrement ? (Erreur RLS)</span>
-          </div>
-          <p className="text-[11px] text-amber-800 leading-relaxed">
-            Par défaut, Supabase bloque les écritures de la clé publique avec l'erreur <em>"new row violates row-level security policy"</em>. Pour autoriser l'enregistrement de vos produits et variantes en temps réel :
-          </p>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
-            <button
-              type="button"
-              onClick={handleCopyRlsFix}
-              className="bg-[#2D2024] hover:bg-[#3E2D32] text-white text-xs font-bold py-2 px-3.5 rounded-xl flex items-center gap-2 shadow-xs transition-colors shrink-0"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              <span>{rlsFixCopied ? '✓ Script de déblocage copié !' : 'Copier le script SQL de déblocage express (3 lignes)'}</span>
-            </button>
-            <span className="text-[11px] text-[#70585F]">
-              Collez-le dans <strong>Supabase &gt; SQL Editor &gt; New query</strong> et cliquez sur <strong>RUN</strong>.
-            </span>
-          </div>
         </div>
       </div>
 

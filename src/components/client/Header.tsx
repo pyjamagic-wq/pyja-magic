@@ -83,14 +83,21 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex-1 md:flex-initial text-center md:text-left">
             <button
               onClick={() => onNavigate('home')}
-              className="group inline-flex flex-col items-center md:items-start text-left focus:outline-none"
+              className="group inline-flex items-center gap-3 focus:outline-none"
             >
-              <span className="font-serif-luxury text-2xl sm:text-3xl tracking-[0.25em] text-[#2D2024] font-semibold group-hover:text-[#BE395D] transition-colors">
-                PYJA MAGIC
-              </span>
-              <span className="text-[9px] tracking-[0.35em] text-[#9A7D85] uppercase -mt-1 font-medium">
-                Algerian Luxury Sleepwear
-              </span>
+              <img
+                src="/logo.jpg"
+                alt="Pyjamas Magique Logo"
+                className="h-10 sm:h-12 w-auto object-contain rounded-full shadow-xs group-hover:scale-105 transition-transform"
+              />
+              <div className="flex flex-col text-left">
+                <span className="font-serif-luxury text-xl sm:text-2xl tracking-[0.15em] text-[#2D2024] font-semibold group-hover:text-[#BE395D] transition-colors">
+                  PYJAMAS MAGIQUE
+                </span>
+                <span className="text-[9px] tracking-[0.25em] text-[#9A7D85] uppercase -mt-0.5 font-medium">
+                  Mostaganem • Algérie
+                </span>
+              </div>
             </button>
           </div>
 

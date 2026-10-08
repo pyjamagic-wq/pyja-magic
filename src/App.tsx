@@ -235,60 +235,49 @@ export default function App() {
               </div>
             </section>
 
-            {/* Category Discovery Cards */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center mb-8">
-                <span className="text-xs font-semibold uppercase tracking-widest text-[#BE395D]">
-                  Matières & Univers
-                </span>
-                <h2 className="font-serif-luxury text-3xl font-bold text-[#2D2024] mt-1">
-                  Explorez par Catégorie
-                </h2>
-              </div>
+            {/* Category Discovery Cards (Stock Réel) */}
+            {products.filter((p) => p.isActive && p.images && p.images.length > 0).length > 0 && (
+              <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="text-center mb-8">
+                  <span className="text-xs font-semibold uppercase tracking-widest text-[#BE395D]">
+                    Matières & Univers
+                  </span>
+                  <h2 className="font-serif-luxury text-3xl font-bold text-[#2D2024] mt-1">
+                    En Vedette dans Notre Stock
+                  </h2>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                {[
-                  {
-                    title: 'Pyjamas en Satin Soyeux',
-                    category: 'Pyjamas satin',
-                    desc: 'Élégance classique avec col chemisier et douceur soyeuse sur la peau.',
-                    image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=700&q=80',
-                  },
-                  {
-                    title: 'Pyjamas en Pur Coton Bio',
-                    category: 'Pyjamas coton',
-                    desc: 'Respirabilité naturelle et douceur cocooning pour toutes les saisons.',
-                    image: 'https://images.unsplash.com/photo-1516762689617-e1cffcef479d?auto=format&fit=crop&w=700&q=80',
-                  },
-                  {
-                    title: 'Collection Hiver & Velours',
-                    category: 'Collection hiver',
-                    desc: 'Velours côtelé fin et chaleur douillette pour les soirées fraîches.',
-                    image: 'https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?auto=format&fit=crop&w=700&q=80',
-                  },
-                ].map((cat, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => handleNavigate('catalog', cat.category)}
-                    className="group relative rounded-3xl overflow-hidden aspect-[4/5] cursor-pointer shadow-md border border-[#F2E5E8]"
-                  >
-                    <img
-                      src={cat.image}
-                      alt={cat.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                    <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
-                      <h3 className="font-serif-luxury text-2xl font-bold">{cat.title}</h3>
-                      <p className="text-xs text-white/80 line-clamp-2">{cat.desc}</p>
-                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#F5B5C4] pt-2 underline">
-                        Découvrir →
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  {products
+                    .filter((p) => p.isActive && p.images && p.images.length > 0)
+                    .slice(0, 3)
+                    .map((prod) => (
+                      <div
+                        key={prod.id}
+                        onClick={() => handleSelectProduct(prod)}
+                        className="group relative rounded-3xl overflow-hidden aspect-[4/5] cursor-pointer shadow-md border border-[#F2E5E8]"
+                      >
+                        <img
+                          src={prod.images[0]}
+                          alt={prod.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                        <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider bg-[#BE395D] px-2 py-0.5 rounded text-white">
+                            {prod.category}
+                          </span>
+                          <h3 className="font-serif-luxury text-xl sm:text-2xl font-bold line-clamp-1">{prod.name}</h3>
+                          <p className="text-xs text-white/80 line-clamp-2">{prod.shortDescription || prod.description}</p>
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#F5B5C4] pt-2 underline">
+                            Découvrir le modèle →
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </section>
+            )}
 
             {/* New Arrivals Section */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

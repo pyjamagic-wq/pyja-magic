@@ -15,9 +15,12 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[#3D2C31]">
           {/* Brand Col */}
           <div className="lg:col-span-2 space-y-4">
-            <h3 className="font-serif-luxury text-2xl tracking-[0.2em] text-[#FAF7F6] font-semibold">
-              PYJA MAGIC
-            </h3>
+            <div className="flex items-center gap-3">
+              <img src="/logo.jpg" alt="Logo" className="w-10 h-10 rounded-full object-contain" />
+              <h3 className="font-serif-luxury text-2xl tracking-[0.15em] text-[#FAF7F6] font-semibold">
+                PYJAMAS MAGIQUE
+              </h3>
+            </div>
             <p className="text-xs text-[#C7B5BA] leading-relaxed max-w-sm">
               La première marque algérienne de pyjamas et homewear féminin haut de gamme. Confort voluptueux, finitions couture et livraison dans l’ensemble des 69 wilayas d’Algérie avec paiement à la livraison.
             </p>
@@ -121,7 +124,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </li>
               <li className="flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5 text-[#F5B5C4]" />
-                <span>Expéditions quotidiennes depuis Alger</span>
+                <span>Expéditions quotidiennes depuis Mostaganem</span>
               </li>
             </ul>
           </div>

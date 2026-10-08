@@ -658,7 +658,7 @@ export const AdminProducts: React.FC = () => {
             <Package className="w-8 h-8" />
           </div>
           <h3 className="font-serif-luxury text-2xl font-bold text-[#2D2024]">
-            Votre stock démo est vide !
+            Votre stock est vide !
           </h3>
           <p className="text-xs text-[#70585F] leading-relaxed">
             Vous pouvez maintenant ajouter vos propres créations. Vos articles s’enregistreront directement dans votre base Supabase avec vos photos, prix, tailles, couleurs et emplacements dans votre atelier.

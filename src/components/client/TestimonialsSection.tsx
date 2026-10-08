@@ -4,7 +4,11 @@ import { useStore } from '../../hooks/useStore';
 
 export const TestimonialsSection: React.FC = () => {
   const { approvedReviews } = useStore();
-  const displayReviews = approvedReviews.slice(0, 4);
+  const displayReviews = approvedReviews
+    .filter((rev) => rev.rating === 5)
+    .slice(0, 5);
+
+  if (displayReviews.length === 0) return null;
 
   return (
     <section className="py-16 md:py-24 bg-white border-b border-[#F2E5E8]">
@@ -12,7 +16,7 @@ export const TestimonialsSection: React.FC = () => {
         <div className="text-center max-w-2xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#BE395D] bg-[#FAF3F5] px-3.5 py-1 rounded-full mb-3">
             <Heart className="w-3.5 h-3.5 fill-current" />
-            Elles adorent Pyja Magic
+            Elles adorent Pyjamas Magique
           </div>
           <h2 className="font-serif-luxury text-3xl sm:text-4xl text-[#2D2024] font-semibold">
             Ce que disent nos clientes
@@ -22,7 +26,7 @@ export const TestimonialsSection: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           {displayReviews.map((rev) => (
             <div
               key={rev.id}

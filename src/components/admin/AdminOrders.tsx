@@ -347,67 +347,7 @@ export const AdminOrders: React.FC = () => {
                 </div>
               </div>
 
-              {/* Saisie Manuelle du Numéro de Bordereau Yalidine (Sans API requise) */}
-              <div className="bg-white p-5 rounded-2xl border border-[#F2E5E8] space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#2D2024] flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-[#BE395D]" />
-                    Bordereau / Suivi Yalidine (Saisie Manuelle)
-                  </h3>
-                  {selectedOrder.yalidineTrackingNumber && (
-                    <a
-                      href={`https://yalidine.app/tracking?tracking=${selectedOrder.yalidineTrackingNumber}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[#BE395D] hover:underline flex items-center gap-1 font-semibold"
-                    >
-                      <span>Vérifier sur Yalidine.app</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
 
-                <p className="text-[11px] text-[#70585F] leading-relaxed">
-                  Lorsque vous déposez le colis au bureau Yalidine, inscrivez simplement le numéro de bordereau remis sur votre reçu papier. La cliente pourra suivre son colis en direct.
-                </p>
-
-                {selectedOrder.yalidineTrackingNumber ? (
-                  <div className="p-3 bg-[#FAF3F5] rounded-xl flex items-center justify-between text-xs">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-[#8C737B] block">N° de suivi actuel :</span>
-                      <span className="font-mono text-base font-bold text-[#BE395D]">
-                        {selectedOrder.yalidineTrackingNumber}
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setManualTrackingInput(selectedOrder.yalidineTrackingNumber || '');
-                      }}
-                      className="text-xs text-[#70585F] underline hover:text-[#2D2024]"
-                    >
-                      Modifier le code
-                    </button>
-                  </div>
-                ) : null}
-
-                <form onSubmit={handleSaveManualTracking} className="flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Tapez le N° de bordereau papier (ex: YAL-948210)..."
-                    value={manualTrackingInput}
-                    onChange={(e) => setManualTrackingInput(e.target.value.toUpperCase())}
-                    className="flex-1 text-xs p-3 rounded-xl border border-[#EBDDE1] bg-[#FAF8F8] font-mono uppercase focus:outline-none focus:border-[#BE395D]"
-                  />
-                  <button
-                    type="submit"
-                    className="bg-[#2D2024] hover:bg-[#3E2D32] text-white px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider shrink-0"
-                  >
-                    Enregistrer Bordereau
-                  </button>
-                </form>
-              </div>
 
               {/* Customer and Delivery Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">

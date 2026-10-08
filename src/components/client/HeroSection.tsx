@@ -70,13 +70,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 </div>
                 <span>Paiement Cash à Réception</span>
               </div>
-
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-[#BE395D] shadow-2xs">
-                  <Heart className="w-4 h-4 fill-current text-[#BE395D]" />
-                </div>
-                <span>+5 000 Clientes Conquises</span>
-              </div>
             </div>
           </div>
 
