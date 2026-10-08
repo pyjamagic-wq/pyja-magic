@@ -107,55 +107,62 @@ export const SizeGuideModal: React.FC<SizeGuideModalProps> = ({
               <table className="w-full text-xs text-left">
                 <thead className="bg-[#FAF3F5] text-[#2D2024] font-semibold uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-3">Taille</th>
-                    <th className="py-3 px-3">Standard DZ / FR</th>
-                    <th className="py-3 px-3">Poitrine</th>
-                    <th className="py-3 px-3">Tour de Taille</th>
-                    <th className="py-3 px-3">Tour de Bassin</th>
+                    <th className="py-3 px-3">Taille FR</th>
+                    <th className="py-3 px-3">Taille Universelle</th>
+                    <th className="py-3 px-3">Tour de poitrine</th>
+                    <th className="py-3 px-3">Tour de taille</th>
+                    <th className="py-3 px-3">Tour de bassin</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F2E5E8] text-[#523F44]">
                   <tr className="hover:bg-[#FAF8F8]">
+                    <td className="py-2.5 px-3 font-semibold text-[#2D2024]">34</td>
                     <td className="py-2.5 px-3 font-bold text-[#BE395D]">XS</td>
-                    <td className="py-2.5 px-3">34 - 36</td>
-                    <td className="py-2.5 px-3">80 - 84 cm</td>
-                    <td className="py-2.5 px-3">62 - 66 cm</td>
-                    <td className="py-2.5 px-3">86 - 90 cm</td>
+                    <td className="py-2.5 px-3">80 - 83 cm</td>
+                    <td className="py-2.5 px-3">60 - 64 cm</td>
+                    <td className="py-2.5 px-3">86 - 89 cm</td>
                   </tr>
                   <tr className="hover:bg-[#FAF8F8]">
+                    <td className="py-2.5 px-3 font-semibold text-[#2D2024]">36</td>
                     <td className="py-2.5 px-3 font-bold text-[#BE395D]">S</td>
-                    <td className="py-2.5 px-3">36 - 38</td>
-                    <td className="py-2.5 px-3">85 - 89 cm</td>
-                    <td className="py-2.5 px-3">67 - 71 cm</td>
-                    <td className="py-2.5 px-3">91 - 95 cm</td>
+                    <td className="py-2.5 px-3">84 - 87 cm</td>
+                    <td className="py-2.5 px-3">65 - 69 cm</td>
+                    <td className="py-2.5 px-3">90 - 93 cm</td>
                   </tr>
                   <tr className="hover:bg-[#FAF8F8]">
+                    <td className="py-2.5 px-3 font-semibold text-[#2D2024]">38</td>
                     <td className="py-2.5 px-3 font-bold text-[#BE395D]">M</td>
-                    <td className="py-2.5 px-3">38 - 40</td>
-                    <td className="py-2.5 px-3">90 - 95 cm</td>
-                    <td className="py-2.5 px-3">72 - 77 cm</td>
-                    <td className="py-2.5 px-3">96 - 101 cm</td>
+                    <td className="py-2.5 px-3">88 - 91 cm</td>
+                    <td className="py-2.5 px-3">70 - 74 cm</td>
+                    <td className="py-2.5 px-3">94 - 97 cm</td>
                   </tr>
                   <tr className="hover:bg-[#FAF8F8]">
+                    <td className="py-2.5 px-3 font-semibold text-[#2D2024]">40</td>
+                    <td className="py-2.5 px-3 font-bold text-[#BE395D]">M / L</td>
+                    <td className="py-2.5 px-3">92 - 95 cm</td>
+                    <td className="py-2.5 px-3">75 - 79 cm</td>
+                    <td className="py-2.5 px-3">98 - 101 cm</td>
+                  </tr>
+                  <tr className="hover:bg-[#FAF8F8]">
+                    <td className="py-2.5 px-3 font-semibold text-[#2D2024]">42</td>
                     <td className="py-2.5 px-3 font-bold text-[#BE395D]">L</td>
-                    <td className="py-2.5 px-3">40 - 42</td>
-                    <td className="py-2.5 px-3">96 - 102 cm</td>
-                    <td className="py-2.5 px-3">78 - 84 cm</td>
-                    <td className="py-2.5 px-3">102 - 108 cm</td>
+                    <td className="py-2.5 px-3">96 - 99 cm</td>
+                    <td className="py-2.5 px-3">80 - 84 cm</td>
+                    <td className="py-2.5 px-3">102 - 105 cm</td>
                   </tr>
                   <tr className="hover:bg-[#FAF8F8]">
+                    <td className="py-2.5 px-3 font-semibold text-[#2D2024]">44</td>
                     <td className="py-2.5 px-3 font-bold text-[#BE395D]">XL</td>
-                    <td className="py-2.5 px-3">44 - 46</td>
-                    <td className="py-2.5 px-3">103 - 110 cm</td>
-                    <td className="py-2.5 px-3">85 - 92 cm</td>
-                    <td className="py-2.5 px-3">109 - 116 cm</td>
+                    <td className="py-2.5 px-3">100 - 104 cm</td>
+                    <td className="py-2.5 px-3">85 - 89 cm</td>
+                    <td className="py-2.5 px-3">106 - 110 cm</td>
                   </tr>
                   <tr className="hover:bg-[#FAF8F8]">
+                    <td className="py-2.5 px-3 font-semibold text-[#2D2024]">46</td>
                     <td className="py-2.5 px-3 font-bold text-[#BE395D]">XXL</td>
-                    <td className="py-2.5 px-3">46 - 48</td>
-                    <td className="py-2.5 px-3">111 - 118 cm</td>
-                    <td className="py-2.5 px-3">93 - 100 cm</td>
-                    <td className="py-2.5 px-3">117 - 124 cm</td>
+                    <td className="py-2.5 px-3">105 - 110 cm</td>
+                    <td className="py-2.5 px-3">90 - 94 cm</td>
+                    <td className="py-2.5 px-3">111 - 115 cm</td>
                   </tr>
                 </tbody>
               </table>
