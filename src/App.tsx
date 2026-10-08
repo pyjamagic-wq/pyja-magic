@@ -38,11 +38,44 @@ import { Sparkles, ArrowRight, Flame } from 'lucide-react';
 export default function App() {
   const { products } = useStore();
 
+  const getInitialView = (): 'home' | 'catalog' | 'product' | 'tracking' | 'faq' | 'confirmation' | 'admin' => {
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    if (path === '/admin' || path.startsWith('/admin/') || hash === '#admin') {
+      return 'admin';
+    }
+    if (path === '/catalogue' || path === '/catalog') return 'catalog';
+    if (path === '/suivi' || path === '/tracking') return 'tracking';
+    if (path === '/faq') return 'faq';
+    return 'home';
+  };
+
   // Navigation state
-  const [currentView, setCurrentView] = useState<'home' | 'catalog' | 'product' | 'tracking' | 'faq' | 'confirmation' | 'admin'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'catalog' | 'product' | 'tracking' | 'faq' | 'confirmation' | 'admin'>(getInitialView);
   const [catalogCategory, setCatalogCategory] = useState<string | undefined>(undefined);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      if (path === '/admin' || path.startsWith('/admin/') || hash === '#admin') {
+        setCurrentView('admin');
+      } else if (path === '/catalogue' || path === '/catalog') {
+        setCurrentView('catalog');
+      } else if (path === '/suivi' || path === '/tracking') {
+        setCurrentView('tracking');
+      } else if (path === '/faq') {
+        setCurrentView('faq');
+      } else {
+        setCurrentView('home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Modals state
   const [cartOpen, setCartOpen] = useState(false);
@@ -73,6 +106,16 @@ export default function App() {
     setCurrentView(view);
     setCatalogCategory(category);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    let newPath = '/';
+    if (view === 'admin') newPath = '/admin';
+    else if (view === 'catalog') newPath = '/catalogue';
+    else if (view === 'tracking') newPath = '/suivi';
+    else if (view === 'faq') newPath = '/faq';
+
+    if (window.location.pathname !== newPath) {
+      window.history.pushState({}, '', newPath);
+    }
   };
 
   const handleSelectProduct = (prod: Product) => {
@@ -97,7 +140,7 @@ export default function App() {
   const handleAdminLogout = () => {
     localStorage.removeItem('pyjamagic_admin_session');
     setAdminSession(null);
-    setCurrentView('home');
+    handleNavigate('home');
   };
 
   // --- RENDER ADMIN INTERFACE ---
@@ -106,7 +149,7 @@ export default function App() {
       return (
         <AdminAuth
           onLoginSuccess={(email) => setAdminSession({ email })}
-          onExitAdmin={() => setCurrentView('home')}
+          onExitAdmin={() => handleNavigate('home')}
         />
       );
     }
@@ -116,7 +159,7 @@ export default function App() {
         currentTab={adminTab}
         onTabChange={setAdminTab}
         onLogout={handleAdminLogout}
-        onViewStore={() => setCurrentView('home')}
+        onViewStore={() => handleNavigate('home')}
         adminEmail={adminSession.email}
       >
         {adminTab === 'dashboard' && <AdminDashboard onNavigateTab={setAdminTab} />}

@@ -50,18 +50,9 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          <p className="mx-auto md:mx-0 text-center text-[11px] md:text-xs text-[#FAF7F6]">
+          <p className="mx-auto text-center text-[11px] md:text-xs text-[#FAF7F6]">
             {settings.announcementText || '✨ LIVRAISON EXPRESS DANS LES 69 WILAYAS • PAIEMENT À LA LIVRAISON (COD) ✨'}
           </p>
-
-          <div className="hidden md:flex items-center gap-3">
-            <button
-              onClick={() => onNavigate('admin')}
-              className="text-[11px] text-[#E6C9D1] hover:text-white transition-colors underline-offset-2 hover:underline"
-            >
-              Espace Admin
-            </button>
-          </div>
         </div>
       </div>
 
@@ -198,15 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
           ))}
           <div className="pt-2 flex items-center justify-between text-xs text-[#9A7D85]">
             <span>Livraison 69 Wilayas</span>
-            <button
-              onClick={() => {
-                onNavigate('admin');
-                setMobileMenuOpen(false);
-              }}
-              className="text-[#BE395D] font-medium underline"
-            >
-              Accès Administration
-            </button>
+            <span>Paiement à la livraison (COD)</span>
           </div>
         </div>
       )}

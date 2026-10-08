@@ -137,12 +137,6 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <button onClick={() => onNavigate('faq')} className="hover:text-white transition-colors">
               Politique de Confidentialité
             </button>
-            <button
-              onClick={() => onNavigate('admin')}
-              className="text-[#E6C9D1] hover:text-white transition-colors font-medium"
-            >
-              Administration
-            </button>
           </div>
         </div>
       </div>
