@@ -1,38 +1,60 @@
 import React, { useState } from 'react';
-import { Lock, Mail, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, ArrowRight } from 'lucide-react';
 
 interface AdminAuthProps {
   onLoginSuccess: (email: string) => void;
   onExitAdmin: () => void;
 }
 
+// SHA-256 helper for secure browser-side hash comparison (Inspect Element protection)
+async function hashSHA256(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// SHA-256 hashes of "pyjamagic@gmail.com" and "Wala2002"
+const AUTH_EMAIL_HASH = '8b56b0294870ca66fa9d812b9e8d71507eb985901e335809228115b685dd6506';
+const AUTH_PASS_HASH = '048225605a4003a13c8030d3e516f356769cb72c7f29e139f0418ee665cb5986';
+
 export const AdminAuth: React.FC<AdminAuthProps> = ({
   onLoginSuccess,
   onExitAdmin,
 }) => {
-  const [email, setEmail] = useState('admin@pyjamagic.dz');
-  const [password, setPassword] = useState('pyjamagic2026');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setLoading(true);
 
-    // Validation (accepts demo credentials or any configured admin email)
-    if (
-      (email === 'admin@pyjamagic.dz' && password === 'pyjamagic2026') ||
-      (email.includes('@') && password.length >= 6)
-    ) {
-      localStorage.setItem('pyjamagic_admin_session', JSON.stringify({ email, token: 'auth-token' }));
-      onLoginSuccess(email);
-    } else {
-      setError('Identifiants incorrects. Veuillez utiliser les identifiants administrateur.');
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanPass = password.trim();
+
+      const computedEmailHash = await hashSHA256(cleanEmail);
+      const computedPassHash = await hashSHA256(cleanPass);
+
+      if (computedEmailHash === AUTH_EMAIL_HASH && computedPassHash === AUTH_PASS_HASH) {
+        localStorage.setItem(
+          'pyjamagic_admin_session',
+          JSON.stringify({ email: cleanEmail, token: 'auth-token-secured' })
+        );
+        onLoginSuccess(cleanEmail);
+      } else {
+        setError('Identifiants incorrects. Accès refusé.');
+      }
+    } catch (err) {
+      console.error('Auth error:', err);
+      setError('Erreur d\'authentification.');
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const handleQuickDemoFill = () => {
-    setEmail('admin@pyjamagic.dz');
-    setPassword('pyjamagic2026');
   };
 
   return (
@@ -75,6 +97,7 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({
                 <input
                   type="email"
                   required
+                  placeholder="votre-email@domaine.dz"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full text-xs pl-9 pr-3 py-3 rounded-xl border border-[#EBDDE1] focus:outline-none focus:border-[#BE395D] bg-[#FAF8F8]"
@@ -91,6 +114,7 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({
                 <input
                   type="password"
                   required
+                  placeholder="••••••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full text-xs pl-9 pr-3 py-3 rounded-xl border border-[#EBDDE1] focus:outline-none focus:border-[#BE395D] bg-[#FAF8F8]"
@@ -100,29 +124,13 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({
 
             <button
               type="submit"
-              className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-md text-xs font-bold uppercase tracking-wider text-white bg-[#BE395D] hover:bg-[#9E2B4B] focus:outline-none transition-all"
+              disabled={loading}
+              className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-md text-xs font-bold uppercase tracking-wider text-white bg-[#BE395D] hover:bg-[#9E2B4B] focus:outline-none transition-all disabled:opacity-50"
             >
-              <span>Se Connecter au Tableau de Bord</span>
+              <span>{loading ? 'Vérification...' : 'Se Connecter au Tableau de Bord'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Quick Demo Credentials Box */}
-          <div className="mt-6 pt-6 border-t border-[#F2E5E8] text-center">
-            <div className="bg-[#FAF3F5] rounded-2xl p-4 text-xs text-[#523F44] space-y-2">
-              <p className="font-semibold text-[#2D2024]">💡 Accès Démo Rapide :</p>
-              <p className="font-mono text-[11px] text-[#70585F]">
-                admin@pyjamagic.dz / pyjamagic2026
-              </p>
-              <button
-                type="button"
-                onClick={handleQuickDemoFill}
-                className="text-xs text-[#BE395D] font-bold underline hover:text-[#9E2B4B]"
-              >
-                Remplir automatiquement
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
