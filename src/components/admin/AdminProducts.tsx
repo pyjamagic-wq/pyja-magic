@@ -29,9 +29,12 @@ import { generateUUID } from '../../services/storage/store';
 import { uploadProductImage } from '../../utils/uploadImage';
 
 const DEFAULT_SIZES = [
+  { sizeId: 'xs', sizeName: 'XS' },
   { sizeId: 's', sizeName: 'S' },
   { sizeId: 'm', sizeName: 'M' },
   { sizeId: 'l', sizeName: 'L' },
+  { sizeId: 'xl', sizeName: 'XL' },
+  { sizeId: 'xxl', sizeName: 'XXL' },
 ];
 
 function slugifyColor(name: string): string {
@@ -113,8 +116,22 @@ export const AdminProducts: React.FC = () => {
     setIsNew(true);
     setIsBestSeller(false);
 
-    // Initial default variant matrix
+    // Initial default variant matrix for all 6 sizes
     setVariants([
+      {
+        id: generateUUID(),
+        productId: '',
+        sizeId: 'xs',
+        sizeName: 'XS',
+        colorId: 'rose',
+        colorName: 'Rose Poudré',
+        colorHex: '#F6C1CB',
+        sku: 'PJM-NEW-ROS-XS',
+        stockQuantity: 6,
+        lowStockThreshold: 3,
+        location: 'Étagère A1 - Boîte XS',
+        isActive: true,
+      },
       {
         id: generateUUID(),
         productId: '',
@@ -155,6 +172,34 @@ export const AdminProducts: React.FC = () => {
         stockQuantity: 8,
         lowStockThreshold: 3,
         location: 'Étagère A1 - Boîte L',
+        isActive: true,
+      },
+      {
+        id: generateUUID(),
+        productId: '',
+        sizeId: 'xl',
+        sizeName: 'XL',
+        colorId: 'rose',
+        colorName: 'Rose Poudré',
+        colorHex: '#F6C1CB',
+        sku: 'PJM-NEW-ROS-XL',
+        stockQuantity: 5,
+        lowStockThreshold: 3,
+        location: 'Étagère A1 - Boîte XL',
+        isActive: true,
+      },
+      {
+        id: generateUUID(),
+        productId: '',
+        sizeId: 'xxl',
+        sizeName: 'XXL',
+        colorId: 'rose',
+        colorName: 'Rose Poudré',
+        colorHex: '#F6C1CB',
+        sku: 'PJM-NEW-ROS-XXL',
+        stockQuantity: 4,
+        lowStockThreshold: 3,
+        location: 'Étagère A1 - Boîte XXL',
         isActive: true,
       },
     ]);
