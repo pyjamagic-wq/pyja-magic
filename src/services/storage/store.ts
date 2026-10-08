@@ -121,9 +121,12 @@ class StoreService {
     const defaultMovements: InventoryMovement[] = [];
     this.movements = loadStorage<InventoryMovement[]>(STORAGE_KEYS.MOVEMENTS, defaultMovements);
 
-    // Initial check with Supabase if configured
+    // Initial check with Supabase + 10s polling for real-time phone <-> PC sync
     if (isSupabaseConfigured) {
       this.syncWithSupabase();
+      setInterval(() => {
+        this.syncWithSupabase();
+      }, 10000);
     }
   }
 
@@ -142,8 +145,9 @@ class StoreService {
     if (!client) return;
     try {
       await this.loadProductsFromSupabase();
+      await this.loadOrdersFromSupabase();
     } catch (err) {
-      console.warn('Supabase fetch notice:', err);
+      console.warn('Supabase sync notice:', err);
     }
   }
 
@@ -512,7 +516,7 @@ class StoreService {
 
     // If Supabase is connected, replicate to DB in background
     if (isSupabaseConfigured) {
-      this.replicateOrderToSupabase(order).catch(console.error);
+      this.syncOrderToSupabase(order).catch(console.error);
     }
 
     return { success: true, order };
@@ -523,59 +527,161 @@ class StoreService {
     }
   }
 
-  private async replicateOrderToSupabase(order: Order) {
+  private async syncOrderToSupabase(order: Order) {
     const client = getSupabase();
     if (!client) return;
     try {
-      await client.from('orders').insert([
-        {
-          order_number: order.orderNumber,
-          customer_first_name: order.customerFirstName,
-          customer_last_name: order.customerLastName,
-          phone: order.phone,
-          email: order.email,
-          wilaya_id: order.wilayaId,
-          wilaya_name: order.wilayaName,
-          commune: order.commune,
-          address: order.address,
-          notes: order.notes,
-          delivery_type: order.deliveryType,
-          delivery_fee: order.deliveryFee,
-          subtotal: order.subtotal,
-          discount: order.discount,
-          coupon_code: order.couponCode,
-          total: order.total,
-          payment_method: order.paymentMethod,
-          status: order.status,
-        },
-      ]);
+      const payload = {
+        order_number: order.orderNumber,
+        customer_first_name: order.customerFirstName,
+        customer_last_name: order.customerLastName,
+        phone: order.phone,
+        email: order.email || null,
+        wilaya_id: order.wilayaId,
+        wilaya_name: order.wilayaName,
+        commune: order.commune,
+        address: order.address,
+        notes: order.notes || null,
+        delivery_type: order.deliveryType,
+        delivery_fee: order.deliveryFee,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        coupon_code: order.couponCode || null,
+        total: order.total,
+        payment_method: order.paymentMethod,
+        status: order.status,
+        yalidine_tracking_number: order.yalidineTrackingNumber || null,
+        yalidine_status: order.yalidineStatus || null,
+        updated_at: order.updatedAt || new Date().toISOString(),
+      };
 
-      // Also insert order items
-      if (order.items && order.items.length > 0) {
-        // Fetch newly created order id
-        const { data: createdOrd } = await client
-          .from('orders')
-          .select('id')
-          .eq('order_number', order.orderNumber)
-          .single();
+      const { error: oErr } = await client.from('orders').upsert(payload, { onConflict: 'order_number' });
+      if (oErr) {
+        console.warn('Supabase order upsert note:', oErr);
+      }
 
-        if (createdOrd?.id) {
-          const itemsPayload = order.items.map((it) => ({
-            order_id: createdOrd.id,
-            product_name: it.productName,
-            size_name: it.sizeName,
-            color_name: it.colorName,
-            price: it.price,
-            quantity: it.quantity,
-            subtotal: it.subtotal,
+      // Also upsert order items
+      const { data: createdOrd } = await client
+        .from('orders')
+        .select('id')
+        .eq('order_number', order.orderNumber)
+        .single();
+
+      if (createdOrd?.id && order.items && order.items.length > 0) {
+        const itemsPayload = order.items.map((it) => ({
+          order_id: createdOrd.id,
+          product_name: it.productName,
+          size_name: it.sizeName,
+          color_name: it.colorName,
+          price: it.price,
+          quantity: it.quantity,
+          subtotal: it.subtotal,
+          location: it.location || 'Rayon Stock',
+        }));
+
+        await client.from('order_items').upsert(itemsPayload);
+      }
+    } catch (err) {
+      console.warn('Supabase order sync error:', err);
+    }
+  }
+
+  async loadOrdersFromSupabase(): Promise<{ success: boolean; count: number; message?: string }> {
+    const client = getSupabase();
+    if (!client) return { success: false, count: 0, message: 'Supabase non configuré.' };
+
+    try {
+      const { data: dbOrders, error: oErr } = await client
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (oErr || !dbOrders) {
+        return { success: false, count: 0, message: oErr?.message };
+      }
+
+      const { data: dbItems } = await client.from('order_items').select('*');
+
+      const mappedOrders: Order[] = dbOrders.map((o) => {
+        const items = (dbItems || [])
+          .filter((it) => it.order_id === o.id)
+          .map((it) => ({
+            id: it.id,
+            productId: it.product_id || '',
+            variantId: '',
+            productName: it.product_name,
+            productImage: '',
+            sizeName: it.size_name,
+            colorName: it.color_name,
+            price: Number(it.price) || 0,
+            quantity: Number(it.quantity) || 1,
+            subtotal: Number(it.subtotal) || 0,
             location: it.location || 'Rayon Stock',
           }));
 
-          await client.from('order_items').insert(itemsPayload);
-        }
+        const statusLabels: Record<string, string> = {
+          en_attente: 'En attente',
+          nouvelle: 'En attente',
+          acceptee: 'Acceptée',
+          confirmee: 'Acceptée',
+          preparation: 'En cours de préparation',
+          arriver_yalidine: 'Arrivé chez Yalidine',
+          expediee: 'Arrivé chez Yalidine',
+          en_livraison: 'En cours de livraison',
+          livree: 'Livrée & Encaissée',
+          refusee: 'Refusée',
+          annulee: 'Annulée',
+          retour: 'Retour colis',
+        };
+
+        return {
+          id: o.id,
+          orderNumber: o.order_number,
+          customerFirstName: o.customer_first_name,
+          customerLastName: o.customer_last_name,
+          phone: o.phone,
+          email: o.email || undefined,
+          wilayaId: o.wilaya_id,
+          wilayaName: o.wilaya_name,
+          commune: o.commune,
+          address: o.address,
+          notes: o.notes || undefined,
+          deliveryType: o.delivery_type || 'domicile',
+          deliveryFee: Number(o.delivery_fee) || 0,
+          subtotal: Number(o.subtotal) || 0,
+          discount: Number(o.discount) || 0,
+          couponCode: o.coupon_code || undefined,
+          total: Number(o.total) || 0,
+          paymentMethod: o.payment_method || 'cod',
+          status: o.status || 'en_attente',
+          yalidineTrackingNumber: o.yalidine_tracking_number || undefined,
+          yalidineStatus: o.yalidine_status || undefined,
+          items: items.length > 0 ? items : [],
+          timeline: [
+            {
+              id: `tl-${o.id}`,
+              status: o.status || 'en_attente',
+              label: statusLabels[o.status] || o.status || 'En attente',
+              description: `Commande ${o.order_number} — Statut : ${statusLabels[o.status] || o.status}`,
+              timestamp: o.updated_at || o.created_at || new Date().toISOString(),
+              author: 'Système',
+            },
+          ],
+          createdAt: o.created_at || new Date().toISOString(),
+          updatedAt: o.updated_at || new Date().toISOString(),
+        };
+      });
+
+      if (mappedOrders.length > 0) {
+        this.orders = mappedOrders;
+        saveStorage(STORAGE_KEYS.ORDERS, this.orders);
+        this.notify();
       }
-    } catch (err) {
-      console.warn('Supabase order insert note:', err);
+
+      return { success: true, count: mappedOrders.length };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, count: 0, message: msg };
     }
   }
 
@@ -635,6 +741,12 @@ class StoreService {
 
     saveStorage(STORAGE_KEYS.ORDERS, this.orders);
     this.notify();
+
+    // Live sync order status change to Supabase for multi-device sync
+    if (isSupabaseConfigured) {
+      this.syncOrderToSupabase(order).catch(console.error);
+    }
+
     return true;
   }
 
@@ -662,6 +774,12 @@ class StoreService {
     order.timeline.push(newEvent);
     saveStorage(STORAGE_KEYS.ORDERS, this.orders);
     this.notify();
+
+    // Live sync tracking number to Supabase
+    if (isSupabaseConfigured) {
+      this.syncOrderToSupabase(order).catch(console.error);
+    }
+
     return true;
   }
 
@@ -903,21 +1021,38 @@ class StoreService {
         return { success: false, message: pErr.message };
       }
 
-      // Synchronisation des variantes
+      // Synchronisation des variantes avec SKU 100% unique (anti-collision)
       if (product.variants && product.variants.length > 0) {
-        const variantsPayload = product.variants.map((v) => ({
-          id: isUUID(v.id) ? v.id : generateUUID(),
-          product_id: productId,
-          size_name: v.sizeName,
-          color_name: v.colorName,
-          color_hex: v.colorHex || '#F6C1CB',
-          sku: v.sku || `${product.slug}-${v.sizeName}-${v.colorName}`.toUpperCase(),
-          stock_quantity: v.stockQuantity,
-          low_stock_threshold: v.lowStockThreshold || 3,
-          location: v.location || product.location || 'Atelier Principal',
-          is_active: v.isActive,
-          updated_at: new Date().toISOString(),
-        }));
+        const variantsPayload = product.variants.map((v) => {
+          const varId = isUUID(v.id) ? v.id : generateUUID();
+          const cleanSlug = (product.slug || product.name || 'PROD')
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '')
+            .slice(0, 10);
+          const colorCode = (v.colorName || v.colorId || 'CLR')
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '')
+            .slice(0, 4);
+          const sizeCode = (v.sizeName || 'M').toUpperCase();
+          const varUuidShort = varId.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
+          
+          // Guaranteed globally unique SKU in PostgreSQL
+          const uniqueSku = `PJM-${cleanSlug}-${colorCode}-${sizeCode}-${varUuidShort}`;
+
+          return {
+            id: varId,
+            product_id: productId,
+            size_name: v.sizeName,
+            color_name: v.colorName,
+            color_hex: v.colorHex || '#F6C1CB',
+            sku: uniqueSku,
+            stock_quantity: Number(v.stockQuantity) || 0,
+            low_stock_threshold: Number(v.lowStockThreshold) || 3,
+            location: v.location || product.location || 'Atelier Principal',
+            is_active: v.isActive !== false,
+            updated_at: new Date().toISOString(),
+          };
+        });
 
         const { error: vErr } = await client.from('product_variants').upsert(variantsPayload, { onConflict: 'id' });
         if (vErr) {
