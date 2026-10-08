@@ -1,5 +1,7 @@
 import React from 'react';
 import { ArrowRight, Sparkles, Truck, ShieldCheck, Heart } from 'lucide-react';
+import { useStore } from '../../hooks/useStore';
+import { formatPrice } from '../../utils/formatters';
 
 interface HeroSectionProps {
   onDiscover: () => void;
@@ -10,6 +12,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onDiscover,
   onBestSellers,
 }) => {
+  const { products, approvedReviews } = useStore();
+  const heroProduct = products.find((p) => p.isActive && p.images && p.images.length > 0);
+  const firstReview = approvedReviews.find((r) => r.rating === 5 && r.comment);
+
+  const heroImage = heroProduct ? heroProduct.images[0] : '/logo.jpg';
+  const heroTitle = heroProduct ? heroProduct.name : 'PYJAMAS MAGIQUE';
+  const heroCategory = heroProduct ? heroProduct.category : 'Collection Algérie';
+  const heroPriceText = heroProduct ? `À partir de ${formatPrice(heroProduct.price)}` : 'Boutique en Ligne Algérie';
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-[#FDF9F8] via-[#F8EEF1] to-[#FAF7F6] pt-10 pb-16 md:py-20 border-b border-[#F2E5E8]">
       {/* Decorative ambient blurs */}
@@ -77,36 +87,38 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           <div className="lg:col-span-5 relative">
             <div className="relative mx-auto max-w-sm sm:max-w-md">
               {/* Main arched photo frame */}
-              <div className="relative aspect-[3/4] rounded-t-[120px] rounded-b-3xl overflow-hidden shadow-2xl border-4 border-white">
+              <div className="relative aspect-[3/4] rounded-t-[120px] rounded-b-3xl overflow-hidden shadow-2xl border-4 border-white bg-[#FAF3F5]">
                 <img
-                  src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1000&q=85"
-                  alt="Pyjama Satin Rose Élégance Pyja Magic"
+                  src={heroImage}
+                  alt={heroTitle}
                   className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                 <div className="absolute bottom-5 left-5 right-5 text-white">
                   <span className="text-[10px] font-bold uppercase tracking-widest bg-[#BE395D] px-2.5 py-1 rounded">
-                    Édition Soie & Velours
+                    {heroCategory}
                   </span>
-                  <p className="font-serif-luxury text-xl font-bold mt-1">
-                    Pyjama Rose Satin Élégance
+                  <p className="font-serif-luxury text-xl font-bold mt-1 line-clamp-1">
+                    {heroTitle}
                   </p>
-                  <p className="text-xs text-white/90">À partir de 4 900 DA</p>
+                  <p className="text-xs text-white/90">{heroPriceText}</p>
                 </div>
               </div>
 
-              {/* Floating review card */}
-              <div className="absolute -bottom-4 -left-4 sm:-left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-[#F2E5E8] shadow-xl max-w-[220px] hidden sm:block animate-fadeIn">
-                <div className="flex text-amber-400 text-xs mb-1">
-                  ★★★★★
+              {/* Floating review card (Shown only if a real 5-star review exists) */}
+              {firstReview && (
+                <div className="absolute -bottom-4 -left-4 sm:-left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-[#F2E5E8] shadow-xl max-w-[220px] hidden sm:block animate-fadeIn">
+                  <div className="flex text-amber-400 text-xs mb-1">
+                    ★★★★★
+                  </div>
+                  <p className="text-[11px] text-[#2D2024] font-medium leading-snug line-clamp-2">
+                    "{firstReview.comment}"
+                  </p>
+                  <span className="text-[10px] text-[#8C737B] mt-1 block font-semibold">
+                    — {firstReview.customerName} ({firstReview.customerWilaya})
+                  </span>
                 </div>
-                <p className="text-[11px] text-[#2D2024] font-medium leading-snug">
-                  "Une douceur incomparable. Reçu à Oran en 48h !"
-                </p>
-                <span className="text-[10px] text-[#8C737B] mt-1 block font-semibold">
-                  — Yasmine B. (31)
-                </span>
-              </div>
+              )}
 
               {/* Floating fast delivery card */}
               <div className="absolute -top-4 -right-4 sm:-right-6 bg-white/95 backdrop-blur-md p-3 px-4 rounded-2xl border border-[#F2E5E8] shadow-xl hidden sm:flex items-center gap-2.5 animate-fadeIn">

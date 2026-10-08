@@ -1,7 +1,11 @@
 import React from 'react';
 import { Sparkles, Heart, CheckCircle2, Feather, Star } from 'lucide-react';
+import { useStore } from '../../hooks/useStore';
 
 export const WhyUsSection: React.FC = () => {
+  const { products } = useStore();
+  const stockProduct = products.find((p) => p.isActive && p.images && p.images.length > 0);
+  const featuredImage = stockProduct ? stockProduct.images[0] : '/logo.jpg';
   const points = [
     {
       title: 'Confort Ultime & Respirabilité',
@@ -58,10 +62,10 @@ export const WhyUsSection: React.FC = () => {
 
           {/* Right Visual Image */}
           <div className="relative">
-            <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
+            <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl border-4 border-white bg-[#FAF3F5]">
               <img
-                src="https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?auto=format&fit=crop&w=1000&q=85"
-                alt="Pyjama confort femme Algérie Pyja Magic"
+                src={featuredImage}
+                alt="Pyjamas Magique Algérie"
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
@@ -70,7 +74,7 @@ export const WhyUsSection: React.FC = () => {
                   "L’art de se sentir belle chez soi."
                 </p>
                 <p className="text-xs text-white/80">
-                  Créé avec passion pour les femmes d'Alger, d'Oran, de Constantine et des 69 wilayas.
+                  Créé avec passion pour les femmes de Mostaganem, Oran, Alger et des 69 wilayas.
                 </p>
               </div>
             </div>
