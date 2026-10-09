@@ -5,7 +5,7 @@ import { isSupabaseConfigured, testSupabaseConnection } from '../../services/sup
 import { SUPABASE_SQL_SCHEMA, SUPABASE_RLS_FIX_SQL } from '../../data/sqlSchemaString';
 
 export const AdminSettings: React.FC = () => {
-  const { settings, updateSettings, resetToDefaultData } = useStore();
+  const { settings, updateSettings, syncSettingsToSupabase, resetToDefaultData } = useStore();
 
   const [storeName, setStoreName] = useState(settings.storeName);
   const [tagline, setTagline] = useState(settings.tagline);
@@ -13,7 +13,6 @@ export const AdminSettings: React.FC = () => {
   const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
   const [email, setEmail] = useState(settings.email);
   const [instagram, setInstagram] = useState(settings.instagram);
-  const [freeShippingThreshold, setFreeShippingThreshold] = useState(settings.freeShippingThreshold);
   const [yalidineApiKey, setYalidineApiKey] = useState(settings.yalidineApiKey);
   const [yalidineApiToken, setYalidineApiToken] = useState(settings.yalidineApiToken);
   const [announcementText, setAnnouncementText] = useState(settings.announcementText);
@@ -40,7 +39,9 @@ export const AdminSettings: React.FC = () => {
     setIsTestingDb(false);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const [saveMessage, setSaveMessage] = useState('');
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings({
       storeName,
@@ -49,7 +50,7 @@ export const AdminSettings: React.FC = () => {
       whatsapp,
       email,
       instagram,
-      freeShippingThreshold: Number(freeShippingThreshold),
+      freeShippingThreshold: 0,
       yalidineApiKey,
       yalidineApiToken,
       announcementText,
@@ -57,7 +58,16 @@ export const AdminSettings: React.FC = () => {
       supabaseAnonKey,
     });
     setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    const sync = await syncSettingsToSupabase();
+    setSaveMessage(
+      sync.success
+        ? '✓ Coordonnées enregistrées et partagées via Supabase (visibles pour tous).'
+        : `Enregistré localement. Sync Supabase : ${sync.message || 'exécutez le SQL store_settings.'}`
+    );
+    setTimeout(() => {
+      setSavedSuccess(false);
+      setSaveMessage('');
+    }, 5000);
   };
 
   const handleCopySqlScript = async () => {
@@ -204,6 +214,9 @@ export const AdminSettings: React.FC = () => {
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#2D2024]">
             1. Coordonnées & Contacts Officiels
           </h3>
+          <p className="text-[11px] text-[#70585F]">
+            Ces infos sont synchronisées dans Supabase pour s’afficher chez tous les visiteurs (pas seulement votre navigateur).
+          </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
@@ -317,13 +330,20 @@ export const AdminSettings: React.FC = () => {
             )}
           </div>
 
-          <button
-            type="submit"
-            className="bg-[#BE395D] hover:bg-[#9E2B4B] text-white px-8 py-3.5 rounded-2xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md"
-          >
-            <Save className="w-4 h-4" />
-            <span>Enregistrer les paramètres</span>
-          </button>
+          <div className="flex flex-col items-end gap-1">
+            {(savedSuccess || saveMessage) && (
+              <span className="text-xs text-emerald-700 font-medium text-right max-w-sm">
+                {saveMessage || '✓ Enregistré'}
+              </span>
+            )}
+            <button
+              type="submit"
+              className="bg-[#BE395D] hover:bg-[#9E2B4B] text-white px-8 py-3.5 rounded-2xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md"
+            >
+              <Save className="w-4 h-4" />
+              <span>Enregistrer les paramètres</span>
+            </button>
+          </div>
         </div>
       </form>
     </div>

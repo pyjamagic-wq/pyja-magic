@@ -34,7 +34,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     activeWilayas,
     placeOrder,
     validateCoupon,
-    settings,
   } = useStore();
 
   // Form fields
@@ -80,14 +79,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Calculations
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  let deliveryFee =
+  const deliveryFee =
     deliveryType === 'stopdesk'
       ? (selectedWilaya?.stopDeskFee ?? Math.max(300, (selectedWilaya?.deliveryFee ?? 600) - 200))
       : (selectedWilaya?.deliveryFee ?? 600);
-
-  if (settings.freeShippingThreshold > 0 && subtotal >= settings.freeShippingThreshold) {
-    deliveryFee = 0;
-  }
 
   const discount = appliedCoupon ? appliedCoupon.discount : 0;
   const total = Math.max(0, subtotal - discount + deliveryFee);
@@ -443,7 +438,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Code de réduction (ex: MAGIC10, BIENVENUE)"
+                  placeholder="Code de réduction (ex: BIENVENU)"
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                   className="flex-1 text-xs p-3 rounded-xl border border-[#EBDDE1] focus:outline-none focus:border-[#BE395D] bg-[#FAF8F8] uppercase"

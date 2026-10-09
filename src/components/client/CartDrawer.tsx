@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Trash2, ShoppingBag, ArrowRight, Truck, Sparkles } from 'lucide-react';
+import { X, Trash2, ShoppingBag, ArrowRight, Sparkles } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import { formatPrice } from '../../utils/formatters';
 
@@ -14,17 +14,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onClose,
   onProceedToCheckout,
 }) => {
-  const { cart, updateCartQuantity, removeFromCart, settings } = useStore();
+  const { cart, updateCartQuantity, removeFromCart } = useStore();
 
   if (!isOpen) return null;
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-
-  // Free shipping progress
-  const freeThreshold = settings.freeShippingThreshold || 15000;
-  const remainingForFree = Math.max(0, freeThreshold - subtotal);
-  const progressPercent = Math.min(100, Math.round((subtotal / freeThreshold) * 100));
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden animate-fadeIn">
@@ -52,27 +47,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <X className="w-5 h-5" />
             </button>
           </div>
-
-          {/* Free Shipping Progress bar */}
-          {freeThreshold > 0 && subtotal > 0 && (
-            <div className="bg-[#FAF3F5] p-3 px-5 border-b border-[#F2E5E8]">
-              <div className="flex items-center justify-between text-[11px] font-medium text-[#2D2024] mb-1.5">
-                <span className="flex items-center gap-1.5">
-                  <Truck className="w-3.5 h-3.5 text-[#BE395D]" />
-                  {remainingForFree === 0
-                    ? 'Félicitations ! Livraison Gratuite offerte 🎉'
-                    : `Plus que ${formatPrice(remainingForFree)} pour la livraison gratuite`}
-                </span>
-                <span className="font-bold">{progressPercent}%</span>
-              </div>
-              <div className="w-full h-1.5 bg-[#EBDDE1] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#BE395D] transition-all duration-500 rounded-full"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
-          )}
 
           {/* Items List */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4">

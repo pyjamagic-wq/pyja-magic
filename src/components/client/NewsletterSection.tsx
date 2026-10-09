@@ -1,14 +1,25 @@
 import React, { useState } from 'react';
 import { Mail, Sparkles, Check } from 'lucide-react';
+import { useStore } from '../../hooks/useStore';
 
 export const NewsletterSection: React.FC = () => {
+  const { subscribeNewsletter } = useStore();
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
-    setSubmitted(true);
+    setLoading(true);
+    const res = await subscribeNewsletter(email);
+    setLoading(false);
+    setMessage(res.message);
+    if (res.success) {
+      setSubmitted(true);
+      setEmail('');
+    }
   };
 
   return (
@@ -19,16 +30,17 @@ export const NewsletterSection: React.FC = () => {
         </div>
 
         <h2 className="font-serif-luxury text-3xl sm:text-4xl text-[#2D2024] font-semibold">
-          Rejoignez le Cercle Privilège Pyja Magic
+          Restez informée
         </h2>
         <p className="text-xs sm:text-sm text-[#70585F] mt-2 max-w-md mx-auto">
-          Inscrivez-vous pour recevoir nos nouvelles collections en avant-première et profitez d'un code promo exclusif de <strong className="text-[#BE395D]">-10%</strong> sur votre première commande.
+          Laissez votre email pour recevoir nos nouvelles collections, publications et codes promo exclusifs.
+          Après un achat, vous devenez membre et recevez le code <strong className="text-[#BE395D]">BIENVENU (−5%)</strong>.
         </p>
 
         {submitted ? (
           <div className="mt-6 bg-[#FAF3F5] border border-[#E8CBD3] text-[#2D2024] p-4 rounded-2xl text-xs font-medium flex items-center justify-center gap-2 animate-fadeIn">
-            <Check className="w-4 h-4 text-emerald-600" />
-            <span>Merci ! Utilisez le code promo <strong>MAGIC10</strong> lors de votre commande pour bénéficier de -10%.</span>
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{message || 'Merci ! Surveillez votre boîte mail.'}</span>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-6 flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
@@ -45,10 +57,14 @@ export const NewsletterSection: React.FC = () => {
             </div>
             <button
               type="submit"
-              className="bg-[#BE395D] hover:bg-[#9E2B4B] text-white text-xs font-bold uppercase tracking-wider py-3 px-6 rounded-full transition-colors shadow-sm"
+              disabled={loading}
+              className="bg-[#BE395D] hover:bg-[#9E2B4B] disabled:opacity-60 text-white text-xs font-bold uppercase tracking-wider py-3 px-6 rounded-full transition-colors shadow-sm"
             >
-              M'inscrire
+              {loading ? 'Inscription…' : "M'inscrire"}
             </button>
+            {message && !submitted && (
+              <p className="text-[11px] text-red-600 sm:col-span-2 w-full text-center">{message}</p>
+            )}
           </form>
         )}
       </div>

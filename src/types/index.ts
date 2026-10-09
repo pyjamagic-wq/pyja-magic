@@ -157,6 +157,14 @@ export interface InventoryMovement {
   createdAt: string;
 }
 
+export interface Subscriber {
+  id: string;
+  email: string;
+  source: 'newsletter' | 'order';
+  isMember: boolean;
+  joinedAt: string;
+}
+
 export interface Coupon {
   id: string;
   code: string;
@@ -168,6 +176,7 @@ export interface Coupon {
   usageCount: number;
   maxUsage?: number;
   isActive: boolean;
+  targetAudience?: 'public' | 'hidden' | 'members';
 }
 
 export interface Review {

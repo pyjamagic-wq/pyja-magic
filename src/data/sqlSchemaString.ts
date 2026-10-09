@@ -126,6 +126,22 @@ CREATE TABLE IF NOT EXISTS inventory_movements (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 9. PARAMÈTRES BOUTIQUE (contacts visibles pour tous)
+CREATE TABLE IF NOT EXISTS store_settings (
+  id TEXT PRIMARY KEY DEFAULT 'main',
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 10. ABONNÉES NEWSLETTER / MEMBRES
+CREATE TABLE IF NOT EXISTS subscribers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  source VARCHAR(20) NOT NULL DEFAULT 'newsletter',
+  is_member BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- PERMISSIONS SUPABASE (RLS DÉSACTIVÉ POUR PERMETTRE LA GESTION VIA L'ADMINISTRATION)
 ALTER TABLE products DISABLE ROW LEVEL SECURITY;
 ALTER TABLE product_variants DISABLE ROW LEVEL SECURITY;
@@ -134,6 +150,8 @@ ALTER TABLE order_items DISABLE ROW LEVEL SECURITY;
 ALTER TABLE order_status_history DISABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_movements DISABLE ROW LEVEL SECURITY;
 ALTER TABLE wilayas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE store_settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE subscribers DISABLE ROW LEVEL SECURITY;
 `;
 
 export const SUPABASE_RLS_FIX_SQL = `-- ============================================================================
@@ -154,6 +172,22 @@ ALTER TABLE wilayas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT ARRAY[]::TEXT[];
 ALTER TABLE products ADD COLUMN IF NOT EXISTS color_images JSONB DEFAULT '{}'::jsonb;
 
--- 3. (Optionnel) Bucket Storage pour upload de fichiers :
+-- 3. Paramètres boutique + abonnées (contacts partagés + newsletter)
+CREATE TABLE IF NOT EXISTS store_settings (
+  id TEXT PRIMARY KEY DEFAULT 'main',
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS subscribers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  source VARCHAR(20) NOT NULL DEFAULT 'newsletter',
+  is_member BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE store_settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE subscribers DISABLE ROW LEVEL SECURITY;
+
+-- 4. (Optionnel) Bucket Storage pour upload de fichiers :
 -- Dans Supabase → Storage → New bucket → nom: product-images → Public: ON
 `;

@@ -10,6 +10,7 @@ import {
   StoreSettings,
   CartItem,
   OrderTimelineEvent,
+  Subscriber,
 } from '../../types';
 import { ALGERIA_WILAYAS } from '../../data/wilayas';
 import {
@@ -21,6 +22,7 @@ import {
 } from '../../data/initialData';
 import { getDeliveryProvider } from '../delivery';
 import { getSupabase, isSupabaseConfigured, supabase } from '../supabase/supabaseClient';
+import { sendNewsletterWelcome, sendWelcomePromoAfterOrder } from '../email/notify';
 
 export function generateUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -46,9 +48,21 @@ const STORAGE_KEYS = {
   REVIEWS: 'pyjamagic_reviews_v1',
   MOVEMENTS: 'pyjamagic_movements_v1',
   SETTINGS: 'pyjamagic_settings_v1',
+  SUBSCRIBERS: 'pyjamagic_subscribers_v1',
   CART: 'pyjamagic_cart_v1',
   WISHLIST: 'pyjamagic_wishlist_v1',
   RECENTLY_VIEWED: 'pyjamagic_recently_viewed_v1',
+};
+
+const BIENVENU_COUPON: Coupon = {
+  id: 'coup-bienvenu',
+  code: 'BIENVENU',
+  discountType: 'percentage',
+  discountValue: 5,
+  minOrderAmount: 0,
+  usageCount: 0,
+  isActive: true,
+  targetAudience: 'members',
 };
 
 // Safe JSON load/save helpers
@@ -78,6 +92,7 @@ class StoreService {
   private reviews: Review[];
   private movements: InventoryMovement[];
   private settings: StoreSettings;
+  private subscribers: Subscriber[];
   private cart: CartItem[];
   private wishlist: string[]; // product IDs
   private recentlyViewed: string[]; // product IDs
@@ -107,7 +122,9 @@ class StoreService {
     saveStorage(STORAGE_KEYS.ORDERS, this.orders);
     this.wilayas = loadStorage<Wilaya[]>(STORAGE_KEYS.WILAYAS, ALGERIA_WILAYAS);
     this.coupons = loadStorage<Coupon[]>(STORAGE_KEYS.COUPONS, INITIAL_COUPONS);
+    this.ensureBienvenuCoupon();
     this.reviews = loadStorage<Review[]>(STORAGE_KEYS.REVIEWS, INITIAL_REVIEWS);
+    this.subscribers = loadStorage<Subscriber[]>(STORAGE_KEYS.SUBSCRIBERS, []);
     this.settings = loadStorage<StoreSettings>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
     if (!this.settings.supabaseUrl) {
       this.settings.supabaseUrl = INITIAL_SETTINGS.supabaseUrl;
@@ -115,10 +132,16 @@ class StoreService {
     if (!this.settings.supabaseAnonKey) {
       this.settings.supabaseAnonKey = INITIAL_SETTINGS.supabaseAnonKey;
     }
+    // Plus de fausse "livraison gratuite au seuil"
+    this.settings.freeShippingThreshold = 0;
+    if (!this.settings.email || this.settings.email.includes('pyjamagic.dz')) {
+      this.settings.email = 'pyjamagic@gmail.com';
+    }
     saveStorage(STORAGE_KEYS.SETTINGS, this.settings);
 
     setTimeout(() => {
       this.loadProductsFromSupabase().catch(() => {});
+      this.loadSettingsFromSupabase().catch(() => {});
     }, 300);
     this.cart = loadStorage<CartItem[]>(STORAGE_KEYS.CART, []);
     this.wishlist = loadStorage<string[]>(STORAGE_KEYS.WISHLIST, []);
@@ -134,6 +157,27 @@ class StoreService {
         this.syncWithSupabase();
       }, 10000);
     }
+  }
+
+  private ensureBienvenuCoupon(): void {
+    const idx = this.coupons.findIndex((c) => c.code.toUpperCase() === 'BIENVENU');
+    if (idx === -1) {
+      this.coupons.unshift({ ...BIENVENU_COUPON });
+    } else {
+      this.coupons[idx] = {
+        ...this.coupons[idx],
+        code: 'BIENVENU',
+        discountType: 'percentage',
+        discountValue: 5,
+        isActive: true,
+        minOrderAmount: 0,
+      };
+    }
+    // Retirer anciens codes démo trompeurs
+    this.coupons = this.coupons.filter(
+      (c) => !['MAGIC10', 'BIENVENUE', 'PYJA15'].includes(c.code.toUpperCase())
+    );
+    saveStorage(STORAGE_KEYS.COUPONS, this.coupons);
   }
 
   // Reactive subscription
@@ -152,9 +196,14 @@ class StoreService {
     try {
       await this.loadProductsFromSupabase();
       await this.loadOrdersFromSupabase();
+      await this.loadSettingsFromSupabase();
     } catch (err) {
       console.warn('Supabase sync notice:', err);
     }
+  }
+
+  getSubscribers(): Subscriber[] {
+    return this.subscribers;
   }
 
   // --- GETTERS ---
@@ -402,12 +451,7 @@ class StoreService {
         ? (wilaya.stopDeskFee ?? Math.max(300, (wilaya.deliveryFee || 600) - 200))
         : (wilaya.deliveryFee || 600);
 
-      // Check free shipping threshold if configured
-      if (this.settings.freeShippingThreshold > 0 && subtotal >= this.settings.freeShippingThreshold) {
-        deliveryFee = 0;
-      }
-
-      // 3. Discount calculation
+    // 3. Discount calculation
       let discount = 0;
       let validCouponCode = undefined;
       if (orderData.couponCode) {
@@ -519,6 +563,13 @@ class StoreService {
     // Clear cart after successful order
     this.clearCart();
     this.notify();
+
+    // Si email fourni → membre + code BIENVENU -5% par mail
+    if (order.email) {
+      this.registerMemberFromOrder(order.email, order.customerFirstName, order.orderNumber).catch(
+        console.warn
+      );
+    }
 
     // If Supabase is connected, replicate to DB in background
     if (isSupabaseConfigured) {
@@ -1227,11 +1278,175 @@ class StoreService {
     this.notify();
   }
 
-  // --- SETTINGS MANAGEMENT ---
+  // --- SETTINGS MANAGEMENT (local + Supabase pour tous les visiteurs) ---
   updateSettings(settings: Partial<StoreSettings>): void {
-    this.settings = { ...this.settings, ...settings };
+    this.settings = {
+      ...this.settings,
+      ...settings,
+      freeShippingThreshold: 0,
+    };
     saveStorage(STORAGE_KEYS.SETTINGS, this.settings);
     this.notify();
+    this.syncSettingsToSupabase().catch(console.warn);
+  }
+
+  async syncSettingsToSupabase(): Promise<{ success: boolean; message?: string }> {
+    const client = getSupabase();
+    if (!client) {
+      return { success: false, message: 'Supabase non configuré.' };
+    }
+
+    const publicData = {
+      storeName: this.settings.storeName,
+      tagline: this.settings.tagline,
+      phone: this.settings.phone,
+      whatsapp: this.settings.whatsapp,
+      email: this.settings.email,
+      instagram: this.settings.instagram,
+      facebook: this.settings.facebook,
+      announcementText: this.settings.announcementText,
+      freeShippingThreshold: 0,
+      lowStockThresholdDefault: this.settings.lowStockThresholdDefault,
+      yalidineEnabled: this.settings.yalidineEnabled,
+      yalidineCenterId: this.settings.yalidineCenterId,
+    };
+
+    try {
+      const { error } = await client.from('store_settings').upsert(
+        {
+          id: 'main',
+          data: publicData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+      if (error) return { success: false, message: error.message };
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, message: msg };
+    }
+  }
+
+  async loadSettingsFromSupabase(): Promise<void> {
+    const client = getSupabase();
+    if (!client) return;
+    try {
+      const { data, error } = await client
+        .from('store_settings')
+        .select('data')
+        .eq('id', 'main')
+        .maybeSingle();
+      if (error || !data?.data) return;
+
+      const remote = data.data as Partial<StoreSettings>;
+      this.settings = {
+        ...this.settings,
+        ...remote,
+        freeShippingThreshold: 0,
+        // garder les clés API locales (pas dans le JSON public)
+        supabaseUrl: this.settings.supabaseUrl,
+        supabaseAnonKey: this.settings.supabaseAnonKey,
+        yalidineApiKey: this.settings.yalidineApiKey,
+        yalidineApiToken: this.settings.yalidineApiToken,
+      };
+      saveStorage(STORAGE_KEYS.SETTINGS, this.settings);
+      this.notify();
+    } catch (err) {
+      console.warn('loadSettingsFromSupabase:', err);
+    }
+  }
+
+  // --- NEWSLETTER / MEMBRES ---
+  async subscribeNewsletter(
+    email: string
+  ): Promise<{ success: boolean; message: string }> {
+    const clean = email.trim().toLowerCase();
+    if (!clean || !clean.includes('@')) {
+      return { success: false, message: 'Adresse email invalide.' };
+    }
+
+    const existing = this.subscribers.find((s) => s.email === clean);
+    if (existing) {
+      return { success: true, message: 'Vous êtes déjà inscrite. Merci !' };
+    }
+
+    const sub: Subscriber = {
+      id: generateUUID(),
+      email: clean,
+      source: 'newsletter',
+      isMember: false,
+      joinedAt: new Date().toISOString(),
+    };
+    this.subscribers.unshift(sub);
+    saveStorage(STORAGE_KEYS.SUBSCRIBERS, this.subscribers);
+    this.notify();
+
+    const client = getSupabase();
+    if (client) {
+      await client.from('subscribers').upsert(
+        {
+          id: sub.id,
+          email: clean,
+          source: 'newsletter',
+          is_member: false,
+          created_at: sub.joinedAt,
+        },
+        { onConflict: 'email' }
+      );
+    }
+
+    sendNewsletterWelcome(clean).catch(console.warn);
+
+    return {
+      success: true,
+      message:
+        'Inscription réussie ! Vous recevrez nos nouveautés et offres par email.',
+    };
+  }
+
+  private async registerMemberFromOrder(
+    email: string,
+    firstName: string,
+    orderNumber: string
+  ): Promise<void> {
+    const clean = email.trim().toLowerCase();
+    if (!clean) return;
+
+    this.ensureBienvenuCoupon();
+
+    const existing = this.subscribers.find((s) => s.email === clean);
+    if (existing) {
+      existing.isMember = true;
+      existing.source = existing.source || 'order';
+    } else {
+      this.subscribers.unshift({
+        id: generateUUID(),
+        email: clean,
+        source: 'order',
+        isMember: true,
+        joinedAt: new Date().toISOString(),
+      });
+    }
+    saveStorage(STORAGE_KEYS.SUBSCRIBERS, this.subscribers);
+    this.notify();
+
+    const client = getSupabase();
+    if (client) {
+      const row = this.subscribers.find((s) => s.email === clean)!;
+      await client.from('subscribers').upsert(
+        {
+          id: row.id,
+          email: clean,
+          source: 'order',
+          is_member: true,
+          created_at: row.joinedAt,
+        },
+        { onConflict: 'email' }
+      );
+    }
+
+    await sendWelcomePromoAfterOrder(clean, firstName, orderNumber);
   }
 
   // --- RESET DEMO DATA ---
@@ -1240,15 +1455,19 @@ class StoreService {
     this.orders = INITIAL_ORDERS;
     this.wilayas = ALGERIA_WILAYAS;
     this.coupons = INITIAL_COUPONS;
+    this.ensureBienvenuCoupon();
     this.reviews = INITIAL_REVIEWS;
-    this.settings = INITIAL_SETTINGS;
+    this.subscribers = [];
+    this.settings = { ...INITIAL_SETTINGS, freeShippingThreshold: 0 };
     saveStorage(STORAGE_KEYS.PRODUCTS, this.products);
     saveStorage(STORAGE_KEYS.ORDERS, this.orders);
     saveStorage(STORAGE_KEYS.WILAYAS, this.wilayas);
     saveStorage(STORAGE_KEYS.COUPONS, this.coupons);
     saveStorage(STORAGE_KEYS.REVIEWS, this.reviews);
+    saveStorage(STORAGE_KEYS.SUBSCRIBERS, this.subscribers);
     saveStorage(STORAGE_KEYS.SETTINGS, this.settings);
     this.notify();
+    this.syncSettingsToSupabase().catch(() => {});
   }
 }
 

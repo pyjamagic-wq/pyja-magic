@@ -58,6 +58,9 @@ export function useStore() {
     updateReviewStatus: (id: string, st: any) => store.updateReviewStatus(id, st),
     deleteReview: (id: string) => store.deleteReview(id),
     updateSettings: (s: Partial<StoreSettings>) => store.updateSettings(s),
+    syncSettingsToSupabase: () => store.syncSettingsToSupabase(),
+    subscribeNewsletter: (email: string) => store.subscribeNewsletter(email),
+    subscribers: store.getSubscribers(),
     resetToDefaultData: () => store.resetToDefaultData(),
   };
 }

@@ -131,6 +131,16 @@ export const OrderConfirmationView: React.FC<OrderConfirmationViewProps> = ({
               </div>
             ))}
           </div>
+
+          {order.email && (
+            <div className="pt-3 border-t border-[#EBDDE1] bg-white rounded-xl p-3 space-y-1">
+              <p className="font-semibold text-[#2D2024]">Vous êtes maintenant membre 💗</p>
+              <p className="text-[#70585F]">
+                Un email vous a été envoyé à <strong>{order.email}</strong> avec le code promo{' '}
+                <strong className="text-[#BE395D]">BIENVENU (−5%)</strong> pour votre prochaine commande.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
