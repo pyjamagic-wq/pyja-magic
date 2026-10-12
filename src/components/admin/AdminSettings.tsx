@@ -62,7 +62,7 @@ export const AdminSettings: React.FC = () => {
     setSaveMessage(
       sync.success
         ? '✓ Coordonnées enregistrées et partagées via Supabase (visibles pour tous).'
-        : `Enregistré localement. Sync Supabase : ${sync.message || 'exécutez le SQL store_settings.'}`
+        : `Enregistré localement. Sync Supabase : ${sync.message || 'vérifiez les accès SQL aux tables settings et reviews.'}`
     );
     setTimeout(() => {
       setSavedSuccess(false);

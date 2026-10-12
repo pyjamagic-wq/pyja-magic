@@ -126,14 +126,27 @@ CREATE TABLE IF NOT EXISTS inventory_movements (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 9. PARAMÈTRES BOUTIQUE (contacts visibles pour tous)
-CREATE TABLE IF NOT EXISTS store_settings (
-  id TEXT PRIMARY KEY DEFAULT 'main',
-  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+-- 9. AVIS CLIENTS
+CREATE TABLE IF NOT EXISTS reviews (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  customer_name VARCHAR(100) NOT NULL,
+  customer_wilaya VARCHAR(100),
+  rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment TEXT NOT NULL,
+  is_verified BOOLEAN DEFAULT TRUE,
+  status VARCHAR(20) DEFAULT 'approuve' CHECK (status IN ('en_attente', 'approuve', 'rejete')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 10. PARAMÈTRES BOUTIQUE
+CREATE TABLE IF NOT EXISTS settings (
+  key VARCHAR(100) PRIMARY KEY,
+  value JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 10. ABONNÉES NEWSLETTER / MEMBRES
+-- 11. ABONNÉES NEWSLETTER / MEMBRES
 CREATE TABLE IF NOT EXISTS subscribers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -150,8 +163,20 @@ ALTER TABLE order_items DISABLE ROW LEVEL SECURITY;
 ALTER TABLE order_status_history DISABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_movements DISABLE ROW LEVEL SECURITY;
 ALTER TABLE wilayas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE store_settings DISABLE ROW LEVEL SECURITY;
 ALTER TABLE subscribers DISABLE ROW LEVEL SECURITY;
+
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public can view approved reviews" ON reviews;
+CREATE POLICY "Public can view approved reviews" ON reviews FOR SELECT USING (status = 'approuve');
+DROP POLICY IF EXISTS "Public can submit reviews" ON reviews;
+CREATE POLICY "Public can submit reviews" ON reviews FOR INSERT TO anon, authenticated WITH CHECK (status = 'approuve');
+DROP POLICY IF EXISTS "Public can read store settings" ON settings;
+CREATE POLICY "Public can read store settings" ON settings FOR SELECT TO anon, authenticated USING (key = 'store_settings');
+DROP POLICY IF EXISTS "Public can insert store settings" ON settings;
+CREATE POLICY "Public can insert store settings" ON settings FOR INSERT TO anon, authenticated WITH CHECK (key = 'store_settings');
+DROP POLICY IF EXISTS "Public can update store settings" ON settings;
+CREATE POLICY "Public can update store settings" ON settings FOR UPDATE TO anon, authenticated USING (key = 'store_settings') WITH CHECK (key = 'store_settings');
 `;
 
 export const SUPABASE_RLS_FIX_SQL = `-- ============================================================================
@@ -172,12 +197,21 @@ ALTER TABLE wilayas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT ARRAY[]::TEXT[];
 ALTER TABLE products ADD COLUMN IF NOT EXISTS color_images JSONB DEFAULT '{}'::jsonb;
 
--- 3. Paramètres boutique + abonnées (contacts partagés + newsletter)
-CREATE TABLE IF NOT EXISTS store_settings (
-  id TEXT PRIMARY KEY DEFAULT 'main',
-  data JSONB NOT NULL DEFAULT '{}'::jsonb,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- 3. Accès publics limités aux avis et paramètres boutique existants
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public can view approved reviews" ON reviews;
+CREATE POLICY "Public can view approved reviews" ON reviews FOR SELECT USING (status = 'approuve');
+DROP POLICY IF EXISTS "Public can submit reviews" ON reviews;
+CREATE POLICY "Public can submit reviews" ON reviews FOR INSERT TO anon, authenticated WITH CHECK (status = 'approuve');
+DROP POLICY IF EXISTS "Public can read store settings" ON settings;
+CREATE POLICY "Public can read store settings" ON settings FOR SELECT TO anon, authenticated USING (key = 'store_settings');
+DROP POLICY IF EXISTS "Public can insert store settings" ON settings;
+CREATE POLICY "Public can insert store settings" ON settings FOR INSERT TO anon, authenticated WITH CHECK (key = 'store_settings');
+DROP POLICY IF EXISTS "Public can update store settings" ON settings;
+CREATE POLICY "Public can update store settings" ON settings FOR UPDATE TO anon, authenticated USING (key = 'store_settings') WITH CHECK (key = 'store_settings');
+
+-- Newsletter subscribers
 CREATE TABLE IF NOT EXISTS subscribers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -185,7 +219,6 @@ CREATE TABLE IF NOT EXISTS subscribers (
   is_member BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-ALTER TABLE store_settings DISABLE ROW LEVEL SECURITY;
 ALTER TABLE subscribers DISABLE ROW LEVEL SECURITY;
 
 -- 4. (Optionnel) Bucket Storage pour upload de fichiers :

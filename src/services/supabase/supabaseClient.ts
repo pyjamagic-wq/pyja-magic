@@ -102,46 +102,23 @@ export async function testSupabaseConnection(): Promise<{
       };
     }
 
-    // 2. Tester l'écriture pour s'assurer que RLS ne bloque pas l'ajout de produits
-    const probeId = '00000000-0000-0000-0000-000000000000';
-    const { error: writeErr } = await client.from('products').upsert({
-      id: probeId,
-      name: '__probe_test__',
-      slug: `__probe_test__${Date.now()}`,
-      price: 0,
-    });
-
-    if (writeErr) {
-      const isRls =
-        writeErr.code === '42501' ||
-        writeErr.message.toLowerCase().includes('row-level security') ||
-        writeErr.message.toLowerCase().includes('permission denied');
-
-      if (isRls) {
-        return {
-          success: false,
-          message:
-            '⚠️ ATTENTION : La lecture fonctionne, mais l\'écriture est BLOQUÉE par la sécurité RLS de Supabase ("new row violates row-level security policy"). Vos produits ne peuvent pas s\'enregistrer tant que RLS n\'est pas désactivé.',
-          hasTables: true,
-          rlsBlocked: true,
-        };
-      }
-
+    const [{ error: reviewsErr }, { error: settingsErr }] = await Promise.all([
+      client.from('reviews').select('id').limit(1),
+      client.from('settings').select('key').eq('key', 'store_settings').limit(1),
+    ]);
+    if (reviewsErr || settingsErr) {
+      const error = reviewsErr || settingsErr;
       return {
         success: false,
-        message: `Lecture OK mais écriture échouée : ${writeErr.message}`,
+        message: `Lecture des tables reviews/settings échouée : ${error.message}`,
         hasTables: true,
       };
     }
 
-    // Nettoyage immédiat de la sonde de test
-    await client.from('products').delete().eq('id', probeId);
-
     return {
       success: true,
-      message: `Connexion Supabase 100% opérationnelle ! Lecture et écriture autorisées (${data?.length ?? 0} produit(s) en base).`,
+      message: `Connexion Supabase opérationnelle en lecture. Aucune donnée n'a été écrite (${data?.length ?? 0} produit(s) existant(s)).`,
       hasTables: true,
-      rlsBlocked: false,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

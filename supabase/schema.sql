@@ -279,6 +279,7 @@ CREATE POLICY "Public can view colors" ON colors FOR SELECT USING (true);
 CREATE POLICY "Public can view sizes" ON sizes FOR SELECT USING (true);
 CREATE POLICY "Public can view wilayas" ON wilayas FOR SELECT USING (is_active = true);
 CREATE POLICY "Public can view approved reviews" ON reviews FOR SELECT USING (status = 'approuve');
+CREATE POLICY "Public can submit reviews" ON reviews FOR INSERT TO anon, authenticated WITH CHECK (status = 'approuve');
 CREATE POLICY "Public can validate active coupons" ON coupons FOR SELECT USING (is_active = true);
 
 -- 2. Commandes : N'importe qui peut créer une commande
@@ -301,6 +302,13 @@ CREATE POLICY "Admins full access wilayas" ON wilayas FOR ALL TO authenticated U
 CREATE POLICY "Admins full access coupons" ON coupons FOR ALL TO authenticated USING (true);
 CREATE POLICY "Admins full access reviews" ON reviews FOR ALL TO authenticated USING (true);
 CREATE POLICY "Admins full access settings" ON settings FOR ALL TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Public can read store settings" ON settings;
+CREATE POLICY "Public can read store settings" ON settings FOR SELECT TO anon, authenticated USING (key = 'store_settings');
+DROP POLICY IF EXISTS "Public can insert store settings" ON settings;
+CREATE POLICY "Public can insert store settings" ON settings FOR INSERT TO anon, authenticated WITH CHECK (key = 'store_settings');
+DROP POLICY IF EXISTS "Public can update store settings" ON settings;
+CREATE POLICY "Public can update store settings" ON settings FOR UPDATE TO anon, authenticated USING (key = 'store_settings') WITH CHECK (key = 'store_settings');
 
 -- ============================================================================
 -- FONCTION ATOMIQUE DE MISE À JOUR DU STOCK LORS D'UNE COMMANDE

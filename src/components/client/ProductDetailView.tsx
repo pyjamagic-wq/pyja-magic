@@ -154,11 +154,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
     }
   };
 
-  const handleReviewSubmit = (e: React.FormEvent) => {
+  const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewName.trim() || !reviewComment.trim()) return;
 
-    addReview({
+    const result = await addReview({
       productId: product.id,
       productName: product.name,
       customerName: reviewName.trim(),
@@ -167,6 +167,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
       comment: reviewComment.trim(),
       isVerified: true,
     });
+
+    if (!result.success) {
+      setToastMessage(`Avis non enregistré dans Supabase : ${result.message || 'erreur inconnue'}`);
+      return;
+    }
 
     setReviewSubmitted(true);
     setReviewName('');

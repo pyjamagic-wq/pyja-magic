@@ -22,7 +22,13 @@ import {
 } from '../../data/initialData';
 import { getDeliveryProvider } from '../delivery';
 import { getSupabase, isSupabaseConfigured, supabase } from '../supabase/supabaseClient';
-import { sendNewsletterWelcome, sendWelcomePromoAfterOrder } from '../email/notify';
+import {
+  sendNewsletterWelcome,
+  sendWelcomePromoAfterOrder,
+  sendOrderNotificationToAdmin,
+  sendOrderConfirmationToClient,
+  sendOrderStatusUpdateToClient,
+} from '../email/notify';
 
 export function generateUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -196,6 +202,7 @@ class StoreService {
     try {
       await this.loadProductsFromSupabase();
       await this.loadOrdersFromSupabase();
+      await this.loadReviewsFromSupabase();
       await this.loadSettingsFromSupabase();
     } catch (err) {
       console.warn('Supabase sync notice:', err);
@@ -571,6 +578,10 @@ class StoreService {
       );
     }
 
+    // Notify admin and client by email (non-bloquant)
+    sendOrderNotificationToAdmin(order).catch(console.warn);
+    if (order.email) sendOrderConfirmationToClient(order).catch(console.warn);
+
     // If Supabase is connected, replicate to DB in background
     if (isSupabaseConfigured) {
       this.syncOrderToSupabase(order).catch(console.error);
@@ -729,6 +740,41 @@ class StoreService {
         };
       });
 
+      // Detect changes compared to local cache and notify accordingly
+      const prevOrders = this.orders || [];
+      const statusLabels: Record<string, string> = {
+        en_attente: 'En attente',
+        nouvelle: 'En attente',
+        acceptee: 'Acceptée',
+        confirmee: 'Acceptée',
+        preparation: 'En cours de préparation',
+        arriver_yalidine: 'Arrivé chez Yalidine',
+        expediee: 'Arrivé chez Yalidine',
+        en_livraison: 'En cours de livraison',
+        livree: 'Livrée & Encaissée',
+        refusee: 'Refusée',
+        annulee: 'Annulée',
+        retour: 'Retour colis',
+      };
+      for (const newOrd of mappedOrders) {
+        const prev = prevOrders.find((p) => p.orderNumber === newOrd.orderNumber);
+        if (!prev) {
+          // New order coming from Supabase (external source)
+          sendOrderNotificationToAdmin(newOrd).catch(console.warn);
+          if (newOrd.email) sendOrderConfirmationToClient(newOrd).catch(console.warn);
+        } else {
+          if (prev.status !== newOrd.status) {
+            const label = statusLabels[newOrd.status] || newOrd.status;
+            sendOrderStatusUpdateToClient(newOrd, label).catch(console.warn);
+          }
+          if ((prev.email || '') !== (newOrd.email || '')) {
+            // Email changed in DB — notify admin and re-send confirmation to new address
+            sendOrderNotificationToAdmin(newOrd).catch(console.warn);
+            if (newOrd.email) sendOrderConfirmationToClient(newOrd).catch(console.warn);
+          }
+        }
+      }
+
       this.orders = mappedOrders;
       saveStorage(STORAGE_KEYS.ORDERS, this.orders);
       this.notify();
@@ -796,6 +842,13 @@ class StoreService {
 
     saveStorage(STORAGE_KEYS.ORDERS, this.orders);
     this.notify();
+
+    // Notify client about status change
+    try {
+      sendOrderStatusUpdateToClient(order, statusLabels[newStatus] || newStatus).catch(console.warn);
+    } catch (e) {
+      console.warn('Status email error:', e);
+    }
 
     // Live sync order status change to Supabase for multi-device sync
     if (isSupabaseConfigured) {
@@ -1251,16 +1304,72 @@ class StoreService {
   }
 
   // --- REVIEW MANAGEMENT ---
-  addReview(reviewData: Omit<Review, 'id' | 'createdAt' | 'status'>): void {
+  async addReview(
+    reviewData: Omit<Review, 'id' | 'createdAt' | 'status'>
+  ): Promise<{ success: boolean; message?: string }> {
     const newReview: Review = {
       ...reviewData,
-      id: `rev-${Date.now()}`,
+      id: generateUUID(),
       status: 'approuve', // auto-approve with moderation capability in admin
       createdAt: new Date().toISOString(),
     };
     this.reviews.unshift(newReview);
     saveStorage(STORAGE_KEYS.REVIEWS, this.reviews);
     this.notify();
+
+    const client = getSupabase();
+    if (!client) return { success: false, message: 'Supabase non configuré.' };
+
+    try {
+      const { error } = await client.from('reviews').insert({
+        id: newReview.id,
+        product_id: newReview.productId,
+        customer_name: newReview.customerName,
+        customer_wilaya: newReview.customerWilaya,
+        rating: newReview.rating,
+        comment: newReview.comment,
+        is_verified: newReview.isVerified,
+        status: newReview.status,
+        created_at: newReview.createdAt,
+      });
+      if (error) return { success: false, message: error.message };
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, message: msg };
+    }
+  }
+
+  async loadReviewsFromSupabase(): Promise<{ success: boolean; count: number; message?: string }> {
+    const client = getSupabase();
+    if (!client) return { success: false, count: 0, message: 'Supabase non configuré.' };
+
+    try {
+      const { data, error } = await client
+        .from('reviews')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) return { success: false, count: 0, message: error.message };
+
+      this.reviews = (data || []).map((row) => ({
+        id: row.id,
+        productId: row.product_id,
+        productName: this.products.find((product) => product.id === row.product_id)?.name || '',
+        customerName: row.customer_name,
+        customerWilaya: row.customer_wilaya || '',
+        rating: Number(row.rating),
+        comment: row.comment,
+        isVerified: row.is_verified !== false,
+        status: row.status,
+        createdAt: row.created_at,
+      }));
+      saveStorage(STORAGE_KEYS.REVIEWS, this.reviews);
+      this.notify();
+      return { success: true, count: this.reviews.length };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, count: 0, message: msg };
+    }
   }
 
   updateReviewStatus(reviewId: string, status: 'approuve' | 'rejete' | 'en_attente'): void {
@@ -1312,13 +1421,13 @@ class StoreService {
     };
 
     try {
-      const { error } = await client.from('store_settings').upsert(
+      const { error } = await client.from('settings').upsert(
         {
-          id: 'main',
-          data: publicData,
+          key: 'store_settings',
+          value: publicData,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: 'id' }
+        { onConflict: 'key' }
       );
       if (error) return { success: false, message: error.message };
       return { success: true };
@@ -1333,13 +1442,13 @@ class StoreService {
     if (!client) return;
     try {
       const { data, error } = await client
-        .from('store_settings')
-        .select('data')
-        .eq('id', 'main')
+        .from('settings')
+        .select('value')
+        .eq('key', 'store_settings')
         .maybeSingle();
-      if (error || !data?.data) return;
+      if (error || !data?.value) return;
 
-      const remote = data.data as Partial<StoreSettings>;
+      const remote = data.value as Partial<StoreSettings>;
       this.settings = {
         ...this.settings,
         ...remote,
