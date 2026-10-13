@@ -1,4 +1,5 @@
 -- Review submissions and private, email-bound, one-time purchase coupons.
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT TRUE;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public can view approved reviews" ON reviews;
@@ -176,3 +177,5 @@ REVOKE ALL ON FUNCTION redeem_personal_coupon(TEXT, TEXT, NUMERIC) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION issue_first_purchase_coupon(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION preview_personal_coupon(TEXT, TEXT, NUMERIC) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION redeem_personal_coupon(TEXT, TEXT, NUMERIC) TO anon, authenticated;
+
+NOTIFY pgrst, 'reload schema';
