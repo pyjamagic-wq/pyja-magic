@@ -299,6 +299,13 @@ CREATE POLICY "Customer can view own order by code" ON orders FOR SELECT USING (
 CREATE POLICY "Customer can view own order items" ON order_items FOR SELECT USING (true);
 CREATE POLICY "Customer can view timeline" ON order_status_history FOR SELECT USING (true);
 
+REVOKE UPDATE ON TABLE public.orders FROM PUBLIC, anon;
+GRANT UPDATE (status, updated_at, yalidine_tracking_number, yalidine_status) ON TABLE public.orders TO anon;
+DROP POLICY IF EXISTS "Public can update order progress" ON orders;
+CREATE POLICY "Public can update order progress" ON orders FOR UPDATE TO anon
+  USING (true)
+  WITH CHECK (status IN ('en_attente', 'nouvelle', 'acceptee', 'confirmee', 'preparation', 'arriver_yalidine', 'expediee', 'en_livraison', 'livree', 'refusee', 'annulee', 'retour'));
+
 -- 4. Administrateurs authentifiés : Accès total
 CREATE POLICY "Admins full access products" ON products FOR ALL TO authenticated USING (true);
 CREATE POLICY "Admins full access variants" ON product_variants FOR ALL TO authenticated USING (true);

@@ -670,7 +670,7 @@ class StoreService {
         updated_at: order.updatedAt || new Date().toISOString(),
       };
 
-      const { error: oErr } = await client.from('orders').upsert(payload, { onConflict: 'order_number' });
+      const { error: oErr } = await client.from('orders').insert(payload);
       if (oErr) {
         console.warn('Supabase order upsert note:', oErr);
         return false;
@@ -708,6 +708,33 @@ class StoreService {
       console.warn('Supabase order sync error:', err);
       return false;
     }
+  }
+
+  private async syncOrderProgressToSupabase(order: Order): Promise<boolean> {
+    const client = getSupabase();
+    if (!client) return false;
+
+    const { data, error } = await client
+      .from('orders')
+      .update({
+        status: order.status,
+        yalidine_tracking_number: order.yalidineTrackingNumber || null,
+        yalidine_status: order.yalidineStatus || null,
+        updated_at: order.updatedAt || new Date().toISOString(),
+      })
+      .eq('order_number', order.orderNumber)
+      .select('order_number')
+      .maybeSingle();
+
+    if (error) {
+      console.error('Order status Supabase update failed:', error.message);
+      return false;
+    }
+    if (!data) {
+      console.error('Order status Supabase update matched no order:', order.orderNumber);
+      return false;
+    }
+    return true;
   }
 
   async loadOrdersFromSupabase(): Promise<{ success: boolean; count: number; message?: string }> {
@@ -843,17 +870,18 @@ class StoreService {
   }
 
   // --- ORDER MANAGEMENT (ADMIN) ---
-  updateOrderStatus(
+  async updateOrderStatus(
     orderNumber: string,
     newStatus: OrderStatus,
     author = 'Admin',
     description?: string
-  ): boolean {
+  ): Promise<boolean> {
     const index = this.orders.findIndex((o) => o.orderNumber === orderNumber);
     if (index === -1) return false;
 
     const order = this.orders[index];
     const prevStatus = order.status;
+    const prevUpdatedAt = order.updatedAt;
     order.status = newStatus;
     order.updatedAt = new Date().toISOString();
 
@@ -883,7 +911,18 @@ class StoreService {
 
     order.timeline.push(newEvent);
 
-    // If order was cancelled or returned, return stock to inventory
+    saveStorage(STORAGE_KEYS.ORDERS, this.orders);
+    this.notify();
+
+    if (isSupabaseConfigured && !(await this.syncOrderProgressToSupabase(order))) {
+      order.status = prevStatus;
+      order.updatedAt = prevUpdatedAt;
+      order.timeline = order.timeline.filter((event) => event.id !== newEvent.id);
+      saveStorage(STORAGE_KEYS.ORDERS, this.orders);
+      this.notify();
+      return false;
+    }
+
     if (newStatus === 'annulee' || newStatus === 'retour') {
       for (const item of order.items) {
         this.adjustStock(
@@ -896,9 +935,6 @@ class StoreService {
       }
     }
 
-    saveStorage(STORAGE_KEYS.ORDERS, this.orders);
-    this.notify();
-
     // Notify client about status change
     try {
       sendOrderStatusUpdateToClient(order, statusLabels[newStatus] || newStatus).catch(console.warn);
@@ -906,20 +942,19 @@ class StoreService {
       console.warn('Status email error:', e);
     }
 
-    // Live sync order status change to Supabase for multi-device sync
-    if (isSupabaseConfigured) {
-      this.syncOrderToSupabase(order).catch(console.error);
-    }
-
     return true;
   }
 
   // --- MANUAL YALIDINE TRACKING (NO API REQUIRED) ---
-  setManualTracking(orderNumber: string, trackingNumber: string, customNote?: string): boolean {
+  async setManualTracking(orderNumber: string, trackingNumber: string, customNote?: string): Promise<boolean> {
     const index = this.orders.findIndex((o) => o.orderNumber === orderNumber);
     if (index === -1) return false;
 
     const order = this.orders[index];
+    const prevStatus = order.status;
+    const prevTrackingNumber = order.yalidineTrackingNumber;
+    const prevYalidineStatus = order.yalidineStatus;
+    const prevUpdatedAt = order.updatedAt;
     const cleanTracking = trackingNumber.trim().toUpperCase();
     order.yalidineTrackingNumber = cleanTracking;
     order.yalidineStatus = 'Déposé au bureau Yalidine';
@@ -939,9 +974,15 @@ class StoreService {
     saveStorage(STORAGE_KEYS.ORDERS, this.orders);
     this.notify();
 
-    // Live sync tracking number to Supabase
-    if (isSupabaseConfigured) {
-      this.syncOrderToSupabase(order).catch(console.error);
+    if (isSupabaseConfigured && !(await this.syncOrderProgressToSupabase(order))) {
+      order.status = prevStatus;
+      order.yalidineTrackingNumber = prevTrackingNumber;
+      order.yalidineStatus = prevYalidineStatus;
+      order.updatedAt = prevUpdatedAt;
+      order.timeline = order.timeline.filter((event) => event.id !== newEvent.id);
+      saveStorage(STORAGE_KEYS.ORDERS, this.orders);
+      this.notify();
+      return false;
     }
 
     return true;
@@ -972,7 +1013,7 @@ class StoreService {
       if (result.success) {
         order.yalidineTrackingNumber = result.trackingNumber;
         order.yalidineStatus = result.courierStatus;
-        this.updateOrderStatus(
+        await this.updateOrderStatus(
           orderNumber,
           'expediee',
           'Yalidine',
@@ -998,7 +1039,7 @@ class StoreService {
     if (sync) {
       order.yalidineStatus = sync.rawStatus;
       if (sync.pyjaMagicStatus !== order.status) {
-        this.updateOrderStatus(
+        return await this.updateOrderStatus(
           orderNumber,
           sync.pyjaMagicStatus as OrderStatus,
           'Yalidine Sync',
@@ -1007,8 +1048,8 @@ class StoreService {
       } else {
         saveStorage(STORAGE_KEYS.ORDERS, this.orders);
         this.notify();
+        return !isSupabaseConfigured || await this.syncOrderProgressToSupabase(order);
       }
-      return true;
     }
     return false;
   }

@@ -67,8 +67,17 @@ export const AdminOrders: React.FC = () => {
     { key: 'annulee', label: 'Annulée' },
   ];
 
-  const handleStatusChange = (orderNumber: string, newStatus: OrderStatus) => {
-    updateOrderStatus(orderNumber, newStatus, 'Admin', `Statut mis à jour manuellement par l’administrateur.`);
+  const handleStatusChange = async (orderNumber: string, newStatus: OrderStatus) => {
+    const saved = await updateOrderStatus(
+      orderNumber,
+      newStatus,
+      'Admin',
+      `Statut mis à jour manuellement par l’administrateur.`
+    );
+    if (!saved) {
+      setActionNotice('Le statut n’a pas été enregistré dans Supabase. Exécutez la migration SQL de suivi des commandes.');
+      return;
+    }
     if (selectedOrder && selectedOrder.orderNumber === orderNumber) {
       setSelectedOrder({
         ...selectedOrder,
@@ -80,11 +89,15 @@ export const AdminOrders: React.FC = () => {
     setTimeout(() => setActionNotice(null), 3000);
   };
 
-  const handleSaveManualTracking = (e: React.FormEvent) => {
+  const handleSaveManualTracking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOrder || !manualTrackingInput.trim()) return;
 
-    setManualTracking(selectedOrder.orderNumber, manualTrackingInput.trim());
+    const saved = await setManualTracking(selectedOrder.orderNumber, manualTrackingInput.trim());
+    if (!saved) {
+      setActionNotice('Le suivi n’a pas été enregistré dans Supabase. Exécutez la migration SQL de suivi des commandes.');
+      return;
+    }
     setSelectedOrder({
       ...selectedOrder,
       status: 'arriver_yalidine',
