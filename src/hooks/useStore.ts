@@ -35,7 +35,8 @@ export function useStore() {
     clearCart: () => store.clearCart(),
     toggleWishlist: (productId: string) => store.toggleWishlist(productId),
     recordRecentlyViewed: (productId: string) => store.recordRecentlyViewed(productId),
-    validateCoupon: (code: string, subtotal: number) => store.validateCoupon(code, subtotal),
+    validateCoupon: (code: string, subtotal: number, email?: string) =>
+      store.validateCoupon(code, subtotal, email),
     placeOrder: (data: Parameters<typeof store.placeOrder>[0]) => store.placeOrder(data),
     updateOrderStatus: (orderNumber: string, status: any, author?: string, desc?: string) =>
       store.updateOrderStatus(orderNumber, status, author, desc),

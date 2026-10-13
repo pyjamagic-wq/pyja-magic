@@ -136,6 +136,8 @@ export interface Order {
   status: OrderStatus;
   yalidineTrackingNumber?: string;
   yalidineStatus?: string;
+  promotionCode?: string;
+  promotionEmailSent?: boolean;
   items: OrderItem[];
   timeline: OrderTimelineEvent[];
   createdAt: string;

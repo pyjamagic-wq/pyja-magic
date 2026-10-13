@@ -16,7 +16,6 @@ import { ALGERIA_WILAYAS } from '../../data/wilayas';
 import {
   INITIAL_PRODUCTS,
   INITIAL_COUPONS,
-  INITIAL_REVIEWS,
   INITIAL_SETTINGS,
   INITIAL_ORDERS,
 } from '../../data/initialData';
@@ -58,17 +57,6 @@ const STORAGE_KEYS = {
   CART: 'pyjamagic_cart_v1',
   WISHLIST: 'pyjamagic_wishlist_v1',
   RECENTLY_VIEWED: 'pyjamagic_recently_viewed_v1',
-};
-
-const BIENVENU_COUPON: Coupon = {
-  id: 'coup-bienvenu',
-  code: 'BIENVENU',
-  discountType: 'percentage',
-  discountValue: 5,
-  minOrderAmount: 0,
-  usageCount: 0,
-  isActive: true,
-  targetAudience: 'members',
 };
 
 // Safe JSON load/save helpers
@@ -127,9 +115,10 @@ class StoreService {
     );
     saveStorage(STORAGE_KEYS.ORDERS, this.orders);
     this.wilayas = loadStorage<Wilaya[]>(STORAGE_KEYS.WILAYAS, ALGERIA_WILAYAS);
-    this.coupons = loadStorage<Coupon[]>(STORAGE_KEYS.COUPONS, INITIAL_COUPONS);
-    this.ensureBienvenuCoupon();
-    this.reviews = loadStorage<Review[]>(STORAGE_KEYS.REVIEWS, INITIAL_REVIEWS);
+    this.coupons = loadStorage<Coupon[]>(STORAGE_KEYS.COUPONS, INITIAL_COUPONS)
+      .filter((coupon) => coupon.code.toUpperCase() !== 'BIENVENU');
+    saveStorage(STORAGE_KEYS.COUPONS, this.coupons);
+    this.reviews = loadStorage<Review[]>(STORAGE_KEYS.REVIEWS, []);
     this.subscribers = loadStorage<Subscriber[]>(STORAGE_KEYS.SUBSCRIBERS, []);
     this.settings = loadStorage<StoreSettings>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
     if (!this.settings.supabaseUrl) {
@@ -163,27 +152,6 @@ class StoreService {
         this.syncWithSupabase();
       }, 10000);
     }
-  }
-
-  private ensureBienvenuCoupon(): void {
-    const idx = this.coupons.findIndex((c) => c.code.toUpperCase() === 'BIENVENU');
-    if (idx === -1) {
-      this.coupons.unshift({ ...BIENVENU_COUPON });
-    } else {
-      this.coupons[idx] = {
-        ...this.coupons[idx],
-        code: 'BIENVENU',
-        discountType: 'percentage',
-        discountValue: 5,
-        isActive: true,
-        minOrderAmount: 0,
-      };
-    }
-    // Retirer anciens codes démo trompeurs
-    this.coupons = this.coupons.filter(
-      (c) => !['MAGIC10', 'BIENVENUE', 'PYJA15'].includes(c.code.toUpperCase())
-    );
-    saveStorage(STORAGE_KEYS.COUPONS, this.coupons);
   }
 
   // Reactive subscription
@@ -377,12 +345,68 @@ class StoreService {
   }
 
   // --- COUPON VALIDATION ---
-  validateCoupon(code: string, subtotal: number): { valid: boolean; coupon?: Coupon; discount: number; message: string } {
+  async validateCoupon(
+    code: string,
+    subtotal: number,
+    email?: string
+  ): Promise<{ valid: boolean; coupon?: Coupon; discount: number; message: string }> {
     const clean = code.trim().toUpperCase();
+
+    if (clean.startsWith('PYJA-')) {
+      const normalizedEmail = email?.trim().toLowerCase();
+      if (!normalizedEmail) {
+        return { valid: false, discount: 0, message: 'Saisissez votre adresse e-mail pour vérifier ce code personnel.' };
+      }
+
+      const client = getSupabase();
+      if (!client) {
+        return { valid: false, discount: 0, message: 'La vérification Supabase est indisponible.' };
+      }
+
+      const { data, error } = await client.rpc('preview_personal_coupon', {
+        p_code: clean,
+        p_email: normalizedEmail,
+        p_subtotal: subtotal,
+      });
+      if (error) {
+        return { valid: false, discount: 0, message: 'Impossible de vérifier ce code. La migration Supabase des coupons est peut-être à appliquer.' };
+      }
+
+      const preview = Array.isArray(data) ? data[0] : data;
+      const personalDiscount = Number(preview?.discount_amount);
+      if (!Number.isFinite(personalDiscount) || personalDiscount <= 0) {
+        return { valid: false, discount: 0, message: 'Code invalide, déjà utilisé ou associé à une autre adresse e-mail.' };
+      }
+
+      return {
+        valid: true,
+        coupon: {
+          id: clean,
+          code: clean,
+          discountType: 'percentage',
+          discountValue: 5,
+          usageCount: 0,
+          maxUsage: 1,
+          isActive: true,
+          targetAudience: 'members',
+        },
+        discount: personalDiscount,
+        message: `Code personnel appliqué (-${personalDiscount.toLocaleString('fr-FR')} DA).`,
+      };
+    }
+
     const coupon = this.coupons.find((c) => c.code.toUpperCase() === clean && c.isActive);
 
     if (!coupon) {
       return { valid: false, discount: 0, message: 'Code promo invalide ou expiré.' };
+    }
+
+    if (coupon.maxUsage !== undefined && coupon.usageCount >= coupon.maxUsage) {
+      return { valid: false, discount: 0, message: 'Ce code promo a déjà été utilisé.' };
+    }
+
+    if (coupon.expiresAt && new Date(coupon.expiresAt).getTime() < Date.now()) {
+      return { valid: false, discount: 0, message: 'Ce code promo a expiré.' };
     }
 
     if (coupon.minOrderAmount && subtotal < coupon.minOrderAmount) {
@@ -462,11 +486,30 @@ class StoreService {
       let discount = 0;
       let validCouponCode = undefined;
       if (orderData.couponCode) {
-        const couponCheck = this.validateCoupon(orderData.couponCode, subtotal);
-        if (couponCheck.valid) {
+        const couponCheck = await this.validateCoupon(orderData.couponCode, subtotal, orderData.email);
+        if (!couponCheck.valid) {
+          return { success: false, message: couponCheck.message };
+        }
+
+        if (couponCheck.coupon?.code.startsWith('PYJA-')) {
+          const client = getSupabase();
+          if (!client) return { success: false, message: 'La vérification Supabase est indisponible.' };
+
+          const { data, error } = await client.rpc('redeem_personal_coupon', {
+            p_code: couponCheck.coupon.code,
+            p_email: orderData.email?.trim().toLowerCase(),
+            p_subtotal: subtotal,
+          });
+          const redemption = Array.isArray(data) ? data[0] : data;
+          const redeemedDiscount = Number(redemption?.discount_amount);
+          if (error || !Number.isFinite(redeemedDiscount) || redeemedDiscount <= 0) {
+            return { success: false, message: 'Ce code vient d’être utilisé, a expiré ou ne correspond pas à votre e-mail.' };
+          }
+          discount = redeemedDiscount;
+          validCouponCode = couponCheck.coupon.code;
+        } else {
           discount = couponCheck.discount;
           validCouponCode = couponCheck.coupon?.code;
-          // increment coupon usage
           const cIndex = this.coupons.findIndex((c) => c.code === couponCheck.coupon?.code);
           if (cIndex > -1) {
             this.coupons[cIndex].usageCount += 1;
@@ -571,21 +614,25 @@ class StoreService {
     this.clearCart();
     this.notify();
 
-    // Si email fourni → membre + code BIENVENU -5% par mail
-    if (order.email) {
-      this.registerMemberFromOrder(order.email, order.customerFirstName, order.orderNumber).catch(
-        console.warn
-      );
+    // Persist the order before issuing its one-time customer coupon.
+    if (isSupabaseConfigured) {
+      const orderSaved = await this.syncOrderToSupabase(order);
+      if (orderSaved && order.email) {
+        const reward = await this.registerMemberFromOrder(
+          order.email,
+          order.customerFirstName,
+          order.orderNumber
+        );
+        if (reward) {
+          order.promotionCode = reward.code;
+          order.promotionEmailSent = reward.emailSent;
+          saveStorage(STORAGE_KEYS.ORDERS, this.orders);
+        }
+      }
     }
 
-    // Notify admin and client by email (non-bloquant)
     sendOrderNotificationToAdmin(order).catch(console.warn);
     if (order.email) sendOrderConfirmationToClient(order).catch(console.warn);
-
-    // If Supabase is connected, replicate to DB in background
-    if (isSupabaseConfigured) {
-      this.syncOrderToSupabase(order).catch(console.error);
-    }
 
     return { success: true, order };
     } catch (err: unknown) {
@@ -595,9 +642,9 @@ class StoreService {
     }
   }
 
-  private async syncOrderToSupabase(order: Order) {
+  private async syncOrderToSupabase(order: Order): Promise<boolean> {
     const client = getSupabase();
-    if (!client) return;
+    if (!client) return false;
     try {
       const payload = {
         order_number: order.orderNumber,
@@ -626,6 +673,7 @@ class StoreService {
       const { error: oErr } = await client.from('orders').upsert(payload, { onConflict: 'order_number' });
       if (oErr) {
         console.warn('Supabase order upsert note:', oErr);
+        return false;
       }
 
       // Also upsert order items
@@ -635,7 +683,9 @@ class StoreService {
         .eq('order_number', order.orderNumber)
         .single();
 
-      if (createdOrd?.id && order.items && order.items.length > 0) {
+      if (!createdOrd?.id) return false;
+
+      if (order.items && order.items.length > 0) {
         const itemsPayload = order.items.map((it) => ({
           order_id: createdOrd.id,
           product_name: it.productName,
@@ -647,10 +697,16 @@ class StoreService {
           location: it.location || 'Rayon Stock',
         }));
 
-        await client.from('order_items').upsert(itemsPayload);
+        const { error: itemsError } = await client.from('order_items').upsert(itemsPayload);
+        if (itemsError) {
+          console.warn('Supabase order items upsert note:', itemsError);
+          return false;
+        }
       }
+      return true;
     } catch (err) {
       console.warn('Supabase order sync error:', err);
+      return false;
     }
   }
 
@@ -1313,10 +1369,6 @@ class StoreService {
       status: 'approuve', // auto-approve with moderation capability in admin
       createdAt: new Date().toISOString(),
     };
-    this.reviews.unshift(newReview);
-    saveStorage(STORAGE_KEYS.REVIEWS, this.reviews);
-    this.notify();
-
     const client = getSupabase();
     if (!client) return { success: false, message: 'Supabase non configuré.' };
 
@@ -1333,6 +1385,9 @@ class StoreService {
         created_at: newReview.createdAt,
       });
       if (error) return { success: false, message: error.message };
+      this.reviews.unshift(newReview);
+      saveStorage(STORAGE_KEYS.REVIEWS, this.reviews);
+      this.notify();
       return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1518,11 +1573,9 @@ class StoreService {
     email: string,
     firstName: string,
     orderNumber: string
-  ): Promise<void> {
+  ): Promise<{ code: string; emailSent: boolean } | null> {
     const clean = email.trim().toLowerCase();
-    if (!clean) return;
-
-    this.ensureBienvenuCoupon();
+    if (!clean) return null;
 
     const existing = this.subscribers.find((s) => s.email === clean);
     if (existing) {
@@ -1541,21 +1594,32 @@ class StoreService {
     this.notify();
 
     const client = getSupabase();
-    if (client) {
-      const row = this.subscribers.find((s) => s.email === clean)!;
-      await client.from('subscribers').upsert(
-        {
-          id: row.id,
-          email: clean,
-          source: 'order',
-          is_member: true,
-          created_at: row.joinedAt,
-        },
-        { onConflict: 'email' }
-      );
+    if (!client) return null;
+
+    const row = this.subscribers.find((s) => s.email === clean)!;
+    const { error: subscriberError } = await client.from('subscribers').upsert(
+      {
+        id: row.id,
+        email: clean,
+        source: 'order',
+        is_member: true,
+        created_at: row.joinedAt,
+      },
+      { onConflict: 'email' }
+    );
+    if (subscriberError) console.warn('Supabase subscriber upsert note:', subscriberError.message);
+
+    const { data: couponCode, error } = await client.rpc('issue_first_purchase_coupon', {
+      p_order_number: orderNumber,
+      p_email: clean,
+    });
+    if (error || typeof couponCode !== 'string' || !couponCode) {
+      if (error) console.warn('Personal coupon issue failed:', error.message);
+      return null;
     }
 
-    await sendWelcomePromoAfterOrder(clean, firstName, orderNumber);
+    const emailSent = await sendWelcomePromoAfterOrder(clean, firstName, orderNumber, couponCode);
+    return { code: couponCode, emailSent };
   }
 
   // --- RESET DEMO DATA ---
@@ -1563,9 +1627,8 @@ class StoreService {
     this.products = INITIAL_PRODUCTS;
     this.orders = INITIAL_ORDERS;
     this.wilayas = ALGERIA_WILAYAS;
-    this.coupons = INITIAL_COUPONS;
-    this.ensureBienvenuCoupon();
-    this.reviews = INITIAL_REVIEWS;
+    this.coupons = INITIAL_COUPONS.filter((coupon) => coupon.code.toUpperCase() !== 'BIENVENU');
+    this.reviews = [];
     this.subscribers = [];
     this.settings = { ...INITIAL_SETTINGS, freeShippingThreshold: 0 };
     saveStorage(STORAGE_KEYS.PRODUCTS, this.products);

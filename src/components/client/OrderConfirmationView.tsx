@@ -132,12 +132,14 @@ export const OrderConfirmationView: React.FC<OrderConfirmationViewProps> = ({
             ))}
           </div>
 
-          {order.email && (
+          {order.email && order.promotionCode && (
             <div className="pt-3 border-t border-[#EBDDE1] bg-white rounded-xl p-3 space-y-1">
-              <p className="font-semibold text-[#2D2024]">Vous êtes maintenant membre 💗</p>
+              <p className="font-semibold text-[#2D2024]">Votre code personnel de fidélité</p>
               <p className="text-[#70585F]">
-                Un email vous a été envoyé à <strong>{order.email}</strong> avec le code promo{' '}
-                <strong className="text-[#BE395D]">BIENVENU (−5%)</strong> pour votre prochaine commande.
+                <strong className="text-[#BE395D]">{order.promotionCode}</strong> vous donne 5% de réduction, une seule fois, avec {order.email}.
+                {order.promotionEmailSent
+                  ? ' Le code a aussi été envoyé par e-mail.'
+                  : ' Copiez-le maintenant : l’envoi de l’e-mail a échoué.'}
               </p>
             </div>
           )}

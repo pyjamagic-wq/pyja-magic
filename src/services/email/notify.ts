@@ -33,31 +33,31 @@ export async function sendNewsletterWelcome(email: string): Promise<boolean> {
     _autoresponse:
       `Bienvenue chez Pyja Magic 💗\n\n` +
       `Merci de votre inscription ! Vous recevrez désormais nos nouvelles collections et offres exclusives.\n\n` +
-      `Après votre premier achat, vous recevrez aussi le code promo BIENVENU (-5%) par email.\n\n` +
+         `Après votre premier achat, vous recevrez un code personnel de 5%, utilisable une seule fois.\n\n` +
       `À très bientôt,\nL'équipe Pyja Magic\n${STORE_MAIL}`,
   });
 }
 
-/** Après commande → membre + code BIENVENU -5% */
+/** Envoie le code personnel généré après la première commande. */
 export async function sendWelcomePromoAfterOrder(
   email: string,
   firstName: string,
-  orderNumber: string
+  orderNumber: string,
+  couponCode: string
 ): Promise<boolean> {
   return postMail({
     email,
     _replyto: email,
-    _subject: `Bienvenue membre Pyja Magic — code BIENVENU (-5%)`,
+    _subject: `Votre code personnel Pyja Magic (-5%)`,
     message:
       `Nouvelle cliente membre après commande ${orderNumber}\n` +
-      `Nom : ${firstName}\nEmail : ${email}\nCode envoyé : BIENVENU (-5%)`,
+      `Nom : ${firstName}\nEmail : ${email}\nCode personnel : ${couponCode} (-5%, utilisable une seule fois)`,
     _autoresponse:
       `Bonjour ${firstName},\n\n` +
       `Merci pour votre commande ${orderNumber} chez Pyja Magic 💗\n\n` +
-      `Vous êtes maintenant membre de notre cercle !\n` +
-      `Voici votre code promo exclusif pour une prochaine commande :\n\n` +
-      `👉 BIENVENU  (−5%)\n\n` +
-      `Utilisez-le au checkout. Vous recevrez aussi de temps en temps nos nouveautés et rappels depuis ${STORE_MAIL}.\n\n` +
+      `Voici votre code personnel pour une prochaine commande :\n\n` +
+      `👉 ${couponCode}  (-5%, utilisable une seule fois avec cette adresse e-mail)\n\n` +
+      `Utilisez-le au checkout.\n\n` +
       `Avec amour,\nPyja Magic`,
   });
 }

@@ -87,11 +87,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const discount = appliedCoupon ? appliedCoupon.discount : 0;
   const total = Math.max(0, subtotal - discount + deliveryFee);
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = async () => {
     setCouponError(null);
     if (!couponInput.trim()) return;
 
-    const res = validateCoupon(couponInput.trim(), subtotal);
+    const res = await validateCoupon(couponInput.trim(), subtotal, email);
     if (res.valid) {
       setAppliedCoupon({
         code: res.coupon?.code || couponInput.toUpperCase(),
@@ -118,6 +118,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setErrorMessage(
         'Numéro de téléphone invalide. Veuillez saisir un numéro algérien valide (ex: 0555 12 34 56, 0661..., 0770...).'
       );
+      return;
+    }
+
+    if (!email.trim()) {
+      setErrorMessage('Renseignez votre adresse e-mail pour recevoir votre code personnel de réduction.');
       return;
     }
 
@@ -260,13 +265,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-[#2D2024] mb-1">
-                  Adresse Email (Facultatif)
+                  Adresse e-mail <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-[#A69398] absolute left-3 top-3.5" />
                   <input
                     type="email"
-                    placeholder="Pour recevoir votre récapitulatif"
+                    required
+                    placeholder="Pour recevoir votre récapitulatif et votre code -5%"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full text-xs pl-9 pr-3 py-3 rounded-xl border border-[#EBDDE1] focus:outline-none focus:border-[#BE395D] bg-[#FAF8F8]"
@@ -438,7 +444,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Code de réduction (ex: BIENVENU)"
+                  placeholder="Code personnel (ex: PYJA-8F2A91C4D0)"
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                   className="flex-1 text-xs p-3 rounded-xl border border-[#EBDDE1] focus:outline-none focus:border-[#BE395D] bg-[#FAF8F8] uppercase"

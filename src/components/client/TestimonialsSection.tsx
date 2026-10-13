@@ -6,6 +6,7 @@ export const TestimonialsSection: React.FC = () => {
   const { approvedReviews } = useStore();
   const displayReviews = approvedReviews
     .filter((rev) => rev.rating === 5)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, 5);
 
   if (displayReviews.length === 0) return null;
