@@ -54,6 +54,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   // Extract unique sizes and colors available on this product
   const availableSizes = useMemo(() => {
@@ -156,30 +158,36 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reviewName.trim() || !reviewComment.trim()) return;
+    if (reviewSubmitting || !reviewName.trim() || !reviewComment.trim()) return;
 
-    const result = await addReview({
-      productId: product.id,
-      productName: product.name,
-      customerName: reviewName.trim(),
-      customerWilaya: reviewWilaya.trim() || 'Algérie',
-      rating: reviewRating,
-      comment: reviewComment.trim(),
-      isVerified: true,
-    });
+    setReviewSubmitting(true);
+    setReviewError(null);
+    try {
+      const result = await addReview({
+        productId: product.id,
+        productName: product.name,
+        customerName: reviewName.trim(),
+        customerWilaya: reviewWilaya.trim() || 'Algérie',
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+        isVerified: true,
+      });
 
-    if (!result.success) {
-      setToastMessage(`Avis non enregistré dans Supabase : ${result.message || 'erreur inconnue'}`);
-      return;
+      if (!result.success) {
+        setReviewError(result.message || 'L’avis n’a pas pu être enregistré. Réessayez.');
+        return;
+      }
+
+      setReviewName('');
+      setReviewWilaya('');
+      setReviewRating(5);
+      setReviewComment('');
+      setReviewSubmitted(true);
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : 'Erreur lors de l’envoi de votre avis.');
+    } finally {
+      setReviewSubmitting(false);
     }
-
-    setReviewSubmitted(true);
-    setReviewName('');
-    setReviewComment('');
-    setTimeout(() => {
-      setShowReviewForm(false);
-      setReviewSubmitted(false);
-    }, 2500);
   };
 
   return (
@@ -552,11 +560,24 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
             <h4 className="font-semibold text-sm text-[#2D2024]">Partagez votre expérience</h4>
 
             {reviewSubmitted ? (
-              <div className="bg-emerald-50 text-emerald-800 p-4 rounded-2xl text-xs font-medium">
-                Merci pour votre avis 💗 ! Il a été enregistré avec succès.
+              <div role="status" aria-live="polite" className="bg-emerald-50 text-emerald-800 p-4 rounded-2xl text-xs font-medium flex items-center justify-between gap-3">
+                <span>Merci pour votre avis 💗 Il a bien été envoyé.</span>
+                <button
+                  type="button"
+                  onClick={() => setReviewSubmitted(false)}
+                  className="font-bold underline shrink-0"
+                >
+                  Écrire un autre avis
+                </button>
               </div>
             ) : (
               <>
+                {reviewError && (
+                  <div role="alert" className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-xl text-xs">
+                    {reviewError}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-[#2D2024] mb-1">Votre Nom & Prénom</label>
@@ -617,9 +638,10 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
 
                 <button
                   type="submit"
-                  className="bg-[#BE395D] hover:bg-[#9E2B4B] text-white text-xs font-bold py-3 px-6 rounded-xl uppercase tracking-wider transition-colors"
+                  disabled={reviewSubmitting}
+                  className="bg-[#BE395D] hover:bg-[#9E2B4B] disabled:opacity-60 disabled:cursor-wait text-white text-xs font-bold py-3 px-6 rounded-xl uppercase tracking-wider transition-colors"
                 >
-                  Publier mon avis
+                  {reviewSubmitting ? 'Envoi en cours…' : 'Publier mon avis'}
                 </button>
               </>
             )}
