@@ -13,6 +13,7 @@ CREATE POLICY "Public can submit reviews"
 
 ALTER TABLE coupons ADD COLUMN IF NOT EXISTS customer_email VARCHAR(255);
 ALTER TABLE coupons ADD COLUMN IF NOT EXISTS issued_order_number VARCHAR(30);
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_usage INT;
 ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 CREATE UNIQUE INDEX IF NOT EXISTS coupons_personal_email_unique
   ON coupons (lower(customer_email))
