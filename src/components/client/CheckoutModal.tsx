@@ -41,7 +41,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [selectedWilayaId, setSelectedWilayaId] = useState<number>(16); // Default Alger (16)
+  const [selectedWilayaId, setSelectedWilayaId] = useState<number>(27); // Default Mostaganem (27)
   const [wilayaSearch, setWilayaSearch] = useState('');
   const [commune, setCommune] = useState('');
   const [address, setAddress] = useState('');
@@ -73,7 +73,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   if (!isOpen) return null;
 
   // Selected wilaya with safe fallback
-  const defaultWilayaFallback = { id: 16, code: '16', name: 'Alger', deliveryFee: 600, stopDeskFee: 400, isActive: true };
+  const defaultWilayaFallback = { id: 27, code: '27', name: 'Mostaganem', deliveryFee: 500, stopDeskFee: 400, isActive: true };
   const selectedWilaya = activeWilayas.find((w) => w.id === selectedWilayaId) || activeWilayas[0] || defaultWilayaFallback;
 
   // Calculations
@@ -357,7 +357,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 >
                   {filteredWilayas.map((w) => (
                     <option key={w.id} value={w.id}>
-                      {w.code} - {w.name} ({formatPrice(deliveryType === 'stopdesk' ? (w.stopDeskFee || 400) : w.deliveryFee)})
+                      {w.code} - {w.name}
                     </option>
                   ))}
                 </select>

@@ -49,6 +49,7 @@ const STORAGE_KEYS = {
   PRODUCTS: 'pyjamagic_products_v1',
   ORDERS: 'pyjamagic_orders_v1',
   WILAYAS: 'pyjamagic_wilayas_v1',
+  WILAYA_RATES_VERSION: 'pyjamagic_wilaya_rates_version',
   COUPONS: 'pyjamagic_coupons_v1',
   REVIEWS: 'pyjamagic_reviews_v1',
   MOVEMENTS: 'pyjamagic_movements_v1',
@@ -114,7 +115,19 @@ class StoreService {
         !['PJM-8K42X9', 'PJM-3N91T2', 'PJM-3M91Y4'].includes(o.orderNumber)
     );
     saveStorage(STORAGE_KEYS.ORDERS, this.orders);
-    this.wilayas = loadStorage<Wilaya[]>(STORAGE_KEYS.WILAYAS, ALGERIA_WILAYAS);
+    const savedWilayas = loadStorage<Wilaya[]>(STORAGE_KEYS.WILAYAS, ALGERIA_WILAYAS);
+    const wilayaRatesVersion = loadStorage<string>(STORAGE_KEYS.WILAYA_RATES_VERSION, '');
+    if (wilayaRatesVersion !== 'mostaganem-2026-10') {
+      const savedByCode = new Map(savedWilayas.map((wilaya) => [wilaya.code, wilaya]));
+      this.wilayas = ALGERIA_WILAYAS.map((wilaya) => ({
+        ...wilaya,
+        isActive: savedByCode.get(wilaya.code)?.isActive ?? wilaya.isActive,
+      }));
+      saveStorage(STORAGE_KEYS.WILAYAS, this.wilayas);
+      saveStorage(STORAGE_KEYS.WILAYA_RATES_VERSION, 'mostaganem-2026-10');
+    } else {
+      this.wilayas = savedWilayas;
+    }
     this.coupons = loadStorage<Coupon[]>(STORAGE_KEYS.COUPONS, INITIAL_COUPONS)
       .filter((coupon) => coupon.code.toUpperCase() !== 'BIENVENU');
     saveStorage(STORAGE_KEYS.COUPONS, this.coupons);
@@ -473,7 +486,10 @@ class StoreService {
       }
 
       // 2. Fetch Wilaya and Delivery Fee
-      const wilaya = this.wilayas.find((w) => w.id === orderData.wilayaId) || this.wilayas[0] || ALGERIA_WILAYAS[0];
+      const wilaya = this.wilayas.find((w) => w.id === orderData.wilayaId) ||
+        this.wilayas.find((w) => w.id === 27) ||
+        this.wilayas[0] ||
+        ALGERIA_WILAYAS[0];
 
       const subtotal = orderData.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 

@@ -34,7 +34,7 @@ export const AdminWilayas: React.FC = () => {
             Tarification des 69 Wilayas d'Algérie
           </h2>
           <p className="text-xs text-[#8C737B] mt-0.5">
-            Configurez les frais de livraison à domicile et en point relais Yalidine pour chaque région.
+            Tarifs au départ de Mostaganem : livraison à domicile et stop-desk Yalidine pour chaque wilaya.
           </p>
         </div>
 
