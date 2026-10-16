@@ -1,4 +1,4 @@
-import { escapeHtml, getServerEnv, sendBrevoEmail } from '../src/server/brevo';
+import { escapeHtml, getServerEnv, sendBrevoEmail } from '../src/server/brevo.js';
 
 interface ApiRequest {
   method?: string;

@@ -1,4 +1,4 @@
-import { getServerEnv } from '../src/server/brevo';
+import { getServerEnv } from '../src/server/brevo.js';
 
 interface ApiRequest {
   method?: string;
