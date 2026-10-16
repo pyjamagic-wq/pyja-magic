@@ -941,13 +941,14 @@ class StoreService {
 
     if (newStatus === 'annulee' || newStatus === 'retour') {
       for (const item of order.items) {
-        this.adjustStock(
+        const stockResult = await this.adjustStock(
           item.variantId,
           item.quantity,
           'retour',
           `Annulation/Retour de la commande ${order.orderNumber}`,
           author
         );
+        if (!stockResult.success) console.error('Stock return failed:', stockResult.message);
       }
     }
 
@@ -1071,39 +1072,63 @@ class StoreService {
   }
 
   // --- INVENTORY ADJUSTMENT ---
-  adjustStock(
+  async adjustStock(
     variantId: string,
     changeQuantity: number,
     type: 'entree' | 'sortie' | 'correction' | 'retour',
     reason: string,
     adminName = 'Admin'
-  ): boolean {
+  ): Promise<{ success: boolean; message?: string }> {
     for (const prod of this.products) {
       const variant = prod.variants.find((v) => v.id === variantId);
       if (variant) {
-        variant.stockQuantity = Math.max(0, variant.stockQuantity + changeQuantity);
+        const client = getSupabase();
+        if (!client) return { success: false, message: 'Supabase non configuré.' };
 
-        const movement: InventoryMovement = {
-          id: `mov-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-          productId: prod.id,
-          productName: prod.name,
-          variantId,
-          variantLabel: `${variant.colorName} / ${variant.sizeName}`,
-          quantity: changeQuantity,
-          type,
-          reason,
-          adminName,
-          createdAt: new Date().toISOString(),
-        };
+        try {
+          const { data, error } = await client.rpc('adjust_variant_stock', {
+            p_variant_id: variantId,
+            p_quantity: changeQuantity,
+            p_type: type,
+            p_reason: reason,
+          });
+          if (error) return { success: false, message: error.message };
 
-        this.movements.unshift(movement);
-        saveStorage(STORAGE_KEYS.PRODUCTS, this.products);
-        saveStorage(STORAGE_KEYS.MOVEMENTS, this.movements);
-        this.notify();
-        return true;
+          const adjustment = (Array.isArray(data) ? data[0] : data) as
+            | { new_stock?: number | string; movement_id?: string }
+            | null;
+          const newStock = Number(adjustment?.new_stock);
+          if (!adjustment?.movement_id || !Number.isFinite(newStock)) {
+            return { success: false, message: 'Supabase n’a pas confirmé la mise à jour du stock.' };
+          }
+
+          variant.stockQuantity = newStock;
+
+          const movement: InventoryMovement = {
+            id: adjustment.movement_id,
+            productId: prod.id,
+            productName: prod.name,
+            variantId,
+            variantLabel: `${variant.colorName} / ${variant.sizeName}`,
+            quantity: changeQuantity,
+            type,
+            reason,
+            adminName,
+            createdAt: new Date().toISOString(),
+          };
+
+          this.movements.unshift(movement);
+          saveStorage(STORAGE_KEYS.PRODUCTS, this.products);
+          saveStorage(STORAGE_KEYS.MOVEMENTS, this.movements);
+          this.notify();
+          return { success: true };
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return { success: false, message: msg };
+        }
       }
     }
-    return false;
+    return { success: false, message: 'Variante introuvable.' };
   }
 
   // --- PRODUCT MANAGEMENT ---

@@ -29,6 +29,8 @@ export const AdminStock: React.FC = () => {
   const [adjustQty, setAdjustQty] = useState(5);
   const [adjustOpType, setAdjustOpType] = useState<'entree' | 'sortie' | 'correction' | 'retour'>('entree');
   const [adjustReason, setAdjustReason] = useState('Nouvel arrivage atelier');
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+  const [isAdjusting, setIsAdjusting] = useState(false);
 
   // Flatten all variants with product metadata
   const allVariantItems = products.flatMap((p) =>
@@ -48,21 +50,33 @@ export const AdminStock: React.FC = () => {
     return true;
   });
 
-  const handleApplyAdjustment = (e: React.FormEvent) => {
+  const handleApplyAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adjustingVariant) return;
+    if (!adjustingVariant || isAdjusting) return;
 
     const delta = adjustOpType === 'sortie' ? -Math.abs(adjustQty) : Math.abs(adjustQty);
-    adjustStock(
-      adjustingVariant.variantId,
-      delta,
-      adjustOpType,
-      adjustReason,
-      'Admin'
-    );
+    setAdjustError(null);
+    setIsAdjusting(true);
+    try {
+      const result = await adjustStock(
+        adjustingVariant.variantId,
+        delta,
+        adjustOpType,
+        adjustReason,
+        'Admin'
+      );
+      if (!result.success) {
+        setAdjustError(result.message || 'Le stock n’a pas pu être enregistré dans Supabase.');
+        return;
+      }
 
-    setAdjustingVariant(null);
-    setAdjustQty(5);
+      setAdjustingVariant(null);
+      setAdjustQty(5);
+    } catch (err: unknown) {
+      setAdjustError(err instanceof Error ? err.message : 'Erreur lors de la mise à jour du stock.');
+    } finally {
+      setIsAdjusting(false);
+    }
   };
 
   return (
@@ -291,6 +305,12 @@ export const AdminStock: React.FC = () => {
             </div>
 
             <form onSubmit={handleApplyAdjustment} className="space-y-4 text-xs">
+              {adjustError && (
+                <div role="alert" className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-xl">
+                  {adjustError}
+                </div>
+              )}
+
               <div>
                 <label className="block font-semibold text-[#2D2024] mb-1">Type d'opération</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -343,16 +363,18 @@ export const AdminStock: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setAdjustingVariant(null)}
+                  onClick={() => !isAdjusting && setAdjustingVariant(null)}
+                  disabled={isAdjusting}
                   className="px-4 py-2.5 rounded-xl border border-[#EBDDE1] font-semibold text-[#70585F]"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#BE395D] hover:bg-[#9E2B4B] text-white font-bold uppercase tracking-wider"
+                  disabled={isAdjusting}
+                  className="px-5 py-2.5 rounded-xl bg-[#BE395D] hover:bg-[#9E2B4B] disabled:opacity-60 text-white font-bold uppercase tracking-wider"
                 >
-                  Valider le mouvement
+                  {isAdjusting ? 'Enregistrement…' : 'Valider le mouvement'}
                 </button>
               </div>
             </form>

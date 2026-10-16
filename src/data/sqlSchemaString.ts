@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS order_status_history (
 CREATE TABLE IF NOT EXISTS inventory_movements (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+  variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL,
   quantity INT NOT NULL,
   type VARCHAR(20) NOT NULL,
   reason TEXT NOT NULL,
@@ -177,6 +178,50 @@ DROP POLICY IF EXISTS "Public can insert store settings" ON settings;
 CREATE POLICY "Public can insert store settings" ON settings FOR INSERT TO anon, authenticated WITH CHECK (key = 'store_settings');
 DROP POLICY IF EXISTS "Public can update store settings" ON settings;
 CREATE POLICY "Public can update store settings" ON settings FOR UPDATE TO anon, authenticated USING (key = 'store_settings') WITH CHECK (key = 'store_settings');
+
+ALTER TABLE inventory_movements
+  ADD COLUMN IF NOT EXISTS variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL;
+
+CREATE OR REPLACE FUNCTION adjust_variant_stock(
+  p_variant_id UUID,
+  p_quantity INT,
+  p_type TEXT,
+  p_reason TEXT
+) RETURNS TABLE (new_stock INT, movement_id UUID)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_product_id UUID;
+  v_current_stock INT;
+  v_new_stock INT;
+  v_movement_id UUID;
+BEGIN
+  IF p_quantity = 0 OR p_type NOT IN ('entree', 'sortie', 'correction', 'retour') THEN
+    RAISE EXCEPTION 'Ajustement de stock invalide';
+  END IF;
+
+  SELECT product_id, stock_quantity INTO v_product_id, v_current_stock
+  FROM product_variants WHERE id = p_variant_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Variante introuvable'; END IF;
+  IF v_current_stock + p_quantity < 0 THEN RAISE EXCEPTION 'Stock insuffisant pour cet ajustement'; END IF;
+  UPDATE product_variants
+  SET stock_quantity = v_current_stock + p_quantity,
+      updated_at = NOW()
+  WHERE id = p_variant_id
+  RETURNING stock_quantity INTO v_new_stock;
+
+  INSERT INTO inventory_movements (product_id, variant_id, quantity, type, reason)
+  VALUES (v_product_id, p_variant_id, p_quantity, p_type, p_reason)
+  RETURNING id INTO v_movement_id;
+
+  RETURN QUERY SELECT v_new_stock, v_movement_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION adjust_variant_stock(UUID, INT, TEXT, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION adjust_variant_stock(UUID, INT, TEXT, TEXT) TO anon, authenticated;
 `;
 
 export const SUPABASE_RLS_FIX_SQL = `-- ============================================================================
