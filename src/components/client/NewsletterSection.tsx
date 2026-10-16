@@ -36,7 +36,6 @@ export const NewsletterSection: React.FC = () => {
         </h2>
         <p className="text-xs sm:text-sm text-[#70585F] mt-2 max-w-md mx-auto">
           Laissez votre email pour recevoir nos nouvelles collections, publications et codes promo exclusifs.
-          Après votre premier achat, recevez un code personnel de 5%, utilisable une seule fois.
         </p>
 
         {submitted ? (

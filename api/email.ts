@@ -205,7 +205,12 @@ async function saveNewsletterSignup(email: string): Promise<{ token?: string; al
     limit: '1',
   });
   const read = await supabaseServiceFetch(`subscribers?${query}`);
-  if (!read.ok) return { error: `Lecture abonnés refusée (${read.status}).` };
+  if (!read.ok) {
+    const error = read.status === 401
+      ? 'Supabase refuse la clé serveur (401). Dans Vercel, vérifiez SUPABASE_SERVICE_ROLE_KEY : elle doit être la clé service_role du même projet que SUPABASE_URL, pas VITE_SUPABASE_ANON_KEY.'
+      : `Lecture abonnés refusée (${read.status}).`;
+    return { error };
+  }
   const rows = (await read.json()) as Array<{
     id: string;
     is_member: boolean;
