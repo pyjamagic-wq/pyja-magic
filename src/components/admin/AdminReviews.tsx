@@ -1,10 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Star, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import { formatDate } from '../../utils/formatters';
 
 export const AdminReviews: React.FC = () => {
   const { reviews, updateReviewStatus, deleteReview } = useStore();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
+
+  const handleDeleteReview = async (reviewId: string) => {
+    setActionError(null);
+    setDeletingReviewId(reviewId);
+    const result = await deleteReview(reviewId);
+    setDeletingReviewId(null);
+    if (!result.success) {
+      setActionError(`Avis non supprimé : ${result.message || 'erreur inconnue'}`);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -16,6 +28,12 @@ export const AdminReviews: React.FC = () => {
           Validez ou masquez les avis déposés par vos clientes sur les pyjamas.
         </p>
       </div>
+
+      {actionError && (
+        <div role="alert" className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs">
+          {actionError}
+        </div>
+      )}
 
       <div className="bg-white rounded-3xl border border-[#F2E5E8] shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
@@ -75,8 +93,9 @@ export const AdminReviews: React.FC = () => {
                       </button>
                     )}
                     <button
-                      onClick={() => deleteReview(rev.id)}
-                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeleteReview(rev.id)}
+                      disabled={deletingReviewId === rev.id}
+                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
                       title="Supprimer"
                     >
                       <Trash2 className="w-4 h-4" />

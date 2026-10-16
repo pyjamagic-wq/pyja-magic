@@ -289,6 +289,9 @@ CREATE POLICY "Public can view sizes" ON sizes FOR SELECT USING (true);
 CREATE POLICY "Public can view wilayas" ON wilayas FOR SELECT USING (is_active = true);
 CREATE POLICY "Public can view approved reviews" ON reviews FOR SELECT USING (status = 'approuve');
 CREATE POLICY "Public can submit reviews" ON reviews FOR INSERT TO anon, authenticated WITH CHECK (status = 'approuve');
+GRANT DELETE ON TABLE public.reviews TO anon;
+DROP POLICY IF EXISTS "Public can delete reviews" ON reviews;
+CREATE POLICY "Public can delete reviews" ON reviews FOR DELETE TO anon USING (true);
 CREATE POLICY "Public can validate active coupons" ON coupons FOR SELECT USING (is_active = true AND customer_email IS NULL);
 
 -- 2. Commandes : N'importe qui peut créer une commande

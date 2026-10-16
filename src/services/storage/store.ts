@@ -1493,10 +1493,28 @@ class StoreService {
     }
   }
 
-  deleteReview(reviewId: string): void {
-    this.reviews = this.reviews.filter((r) => r.id !== reviewId);
-    saveStorage(STORAGE_KEYS.REVIEWS, this.reviews);
-    this.notify();
+  async deleteReview(reviewId: string): Promise<{ success: boolean; message?: string }> {
+    const client = getSupabase();
+    if (!client) return { success: false, message: 'Supabase non configuré.' };
+
+    try {
+      const { data, error } = await client
+        .from('reviews')
+        .delete()
+        .eq('id', reviewId)
+        .select('id')
+        .maybeSingle();
+      if (error) return { success: false, message: error.message };
+      if (!data) return { success: false, message: 'Avis introuvable ou suppression non autorisée.' };
+
+      this.reviews = this.reviews.filter((review) => review.id !== reviewId);
+      saveStorage(STORAGE_KEYS.REVIEWS, this.reviews);
+      this.notify();
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, message: msg };
+    }
   }
 
   // --- SETTINGS MANAGEMENT (local + Supabase pour tous les visiteurs) ---

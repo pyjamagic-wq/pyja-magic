@@ -308,9 +308,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <div>
                     <p className="text-xs font-bold text-[#2D2024]">Livraison à Domicile</p>
                     <p className="text-[11px] text-[#70585F]">Remis directement chez vous en main propre</p>
-                    <p className="text-xs font-bold text-[#BE395D] mt-1">
-                      {selectedWilaya ? formatPrice(selectedWilaya.deliveryFee) : ''}
-                    </p>
                   </div>
                 </button>
 
@@ -327,9 +324,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <div>
                     <p className="text-xs font-bold text-[#2D2024]">Stop Desk (Bureau Yalidine)</p>
                     <p className="text-[11px] text-[#70585F]">Récupérez votre colis au centre Yalidine le plus proche</p>
-                    <p className="text-xs font-bold text-[#BE395D] mt-1">
-                      {selectedWilaya ? formatPrice(selectedWilaya.stopDeskFee || 400) : ''}
-                    </p>
                   </div>
                 </button>
               </div>
