@@ -260,6 +260,30 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS subscribers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  source VARCHAR(20) NOT NULL DEFAULT 'newsletter',
+  is_member BOOLEAN DEFAULT FALSE,
+  marketing_consent BOOLEAN NOT NULL DEFAULT FALSE,
+  unsubscribe_token UUID NOT NULL DEFAULT uuid_generate_v4() UNIQUE,
+  marketing_last_sent_at TIMESTAMP WITH TIME ZONE,
+  unsubscribed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS subscribers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  source VARCHAR(20) NOT NULL DEFAULT 'newsletter',
+  is_member BOOLEAN DEFAULT FALSE,
+  marketing_consent BOOLEAN NOT NULL DEFAULT FALSE,
+  unsubscribe_token UUID NOT NULL DEFAULT uuid_generate_v4() UNIQUE,
+  marketing_last_sent_at TIMESTAMP WITH TIME ZONE,
+  unsubscribed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- ============================================================================
 -- SÉCURITÉ : ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
@@ -278,6 +302,8 @@ ALTER TABLE order_status_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.subscribers FROM PUBLIC, anon, authenticated;
 
 -- 1. Tout le monde peut voir les produits actifs, catégories, couleurs, tailles, wilayas
 CREATE POLICY "Public can view active products" ON products FOR SELECT USING (is_active = true);

@@ -75,6 +75,19 @@ Le projet inclut le script SQL complet dans **`supabase/schema.sql`**.
 
 ---
 
+## ✉️ Emails Brevo & Newsletter
+
+L'application envoie les confirmations de commande et les changements de statut via Brevo. Les clientes peuvent aussi s'inscrire aux nouveautés depuis la page d'accueil ou cocher la case facultative pendant la commande. Seules les adresses ayant donné leur consentement reçoivent les nouveautés et offres; les emails nécessaires au suivi d'une commande restent distincts.
+
+1. Dans Brevo, vérifiez l'adresse expéditrice `pyjamagic@gmail.com` (ou une autre adresse validée).
+2. Exécutez `migrations/20261016_brevo_marketing.sql` dans le SQL Editor de Supabase pour préparer les abonnements et liens de désinscription.
+3. Dans **Vercel > Project Settings > Environment Variables**, configurez `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `STORE_EMAIL`, `CRON_SECRET`, `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`. Gardez les clés secrètes côté serveur; ne préfixez pas ces variables avec `VITE_`.
+4. Redéployez le projet après avoir ajouté ou modifié les variables.
+
+La tâche Vercel `/api/marketing-cron` s'exécute chaque jour et envoie une campagne aux abonnés consentants au plus tous les quatre jours, ou pour présenter de nouveaux produits. Les messages de commande sont déclenchés à la création de la commande et à chaque changement de statut; quand le numéro Yalidine est disponible, il est inclus dans la notification.
+
+---
+
 ## 🚚 Intégration Yalidine Express
 
 L'architecture est structurée autour de l'interface `DeliveryProvider` située dans `src/services/delivery/` :

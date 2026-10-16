@@ -6,12 +6,14 @@ import { formatPrice } from '../../utils/formatters';
 
 interface OrderConfirmationViewProps {
   order: Order;
+  newsletterNotice?: string;
   onTrackOrder: (orderNumber: string) => void;
   onContinueShopping: () => void;
 }
 
 export const OrderConfirmationView: React.FC<OrderConfirmationViewProps> = ({
   order,
+  newsletterNotice,
   onTrackOrder,
   onContinueShopping,
 }) => {
@@ -72,6 +74,12 @@ export const OrderConfirmationView: React.FC<OrderConfirmationViewProps> = ({
             Merci pour votre confiance, <strong className="text-[#2D2024]">{order.customerFirstName}</strong> ! Nos équipes préparent votre pyjama avec soin et amour.
           </p>
         </div>
+
+        {newsletterNotice && (
+          <p role="status" className="mx-auto max-w-md rounded-xl border border-[#E8CBD3] bg-[#FAF3F5] p-3 text-xs text-[#523F44]">
+            {newsletterNotice}
+          </p>
+        )}
 
         {/* Order Code Highlight Box */}
         <div className="bg-[#FAF3F5] border-2 border-dashed border-[#E8CBD3] rounded-3xl p-6 max-w-md mx-auto space-y-3">

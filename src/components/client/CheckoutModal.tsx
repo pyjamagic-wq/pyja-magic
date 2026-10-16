@@ -21,7 +21,7 @@ import { Order } from '../../types';
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onOrderSuccess: (order: Order) => void;
+  onOrderSuccess: (order: Order, newsletterNotice?: string) => void;
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
@@ -34,6 +34,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     activeWilayas,
     placeOrder,
     validateCoupon,
+    subscribeNewsletter,
   } = useStore();
 
   // Form fields
@@ -41,6 +42,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [newsletterConsent, setNewsletterConsent] = useState(false);
   const [selectedWilayaId, setSelectedWilayaId] = useState<number>(27); // Default Mostaganem (27)
   const [wilayaSearch, setWilayaSearch] = useState('');
   const [commune, setCommune] = useState('');
@@ -86,6 +88,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const discount = appliedCoupon ? appliedCoupon.discount : 0;
   const total = Math.max(0, subtotal - discount + deliveryFee);
+
+  const handleClose = () => {
+    setNewsletterConsent(false);
+    onClose();
+  };
 
   const handleApplyCoupon = async () => {
     setCouponError(null);
@@ -159,7 +166,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       });
 
       if (result.success && result.order) {
-        onOrderSuccess(result.order);
+        let newsletterNotice: string | undefined;
+        if (newsletterConsent) {
+          try {
+            const signup = await subscribeNewsletter(email, true);
+            newsletterNotice = signup.message;
+          } catch (error) {
+            console.error('Newsletter signup failed after order:', error);
+            newsletterNotice = 'Votre commande est confirmée, mais votre inscription aux nouveautés a échoué. Vous pourrez réessayer depuis la page d’accueil.';
+          }
+        }
+        setNewsletterConsent(false);
+        onOrderSuccess(result.order, newsletterNotice);
       } else {
         setErrorMessage(result.message || 'Une erreur est survenue lors de la commande.');
       }
@@ -187,7 +205,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </h2>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 text-[#70585F] hover:text-[#2D2024] hover:bg-[#FAF3F5] rounded-full transition-colors"
             aria-label="Fermer"
           >
@@ -278,6 +296,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     className="w-full text-xs pl-9 pr-3 py-3 rounded-xl border border-[#EBDDE1] focus:outline-none focus:border-[#BE395D] bg-[#FAF8F8]"
                   />
                 </div>
+                <label className="mt-2 flex items-start gap-2 text-[11px] text-[#70585F]">
+                  <input
+                    type="checkbox"
+                    checked={newsletterConsent}
+                    onChange={(e) => setNewsletterConsent(e.target.checked)}
+                    className="mt-0.5 accent-[#BE395D]"
+                  />
+                  <span>
+                    Je souhaite recevoir les nouveautés et offres Pyja Magic par e-mail. Désinscription possible à tout moment.
+                  </span>
+                </label>
               </div>
             </div>
           </div>

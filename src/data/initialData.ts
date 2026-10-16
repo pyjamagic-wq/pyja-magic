@@ -3,10 +3,10 @@ import { Product, Coupon, Review, StoreSettings, Order } from '../types';
 export const INITIAL_SETTINGS: StoreSettings = {
   storeName: 'PYJA MAGIC',
   tagline: 'Le confort qui vous ressemble',
-  phone: '0555 12 34 56',
-  whatsapp: '+213 555 12 34 56',
+  phone: '07 70 21 60 40',
+  whatsapp: '+213 7 70 21 60 40',
   email: 'pyjamagic@gmail.com',
-  instagram: '@pyjamagic.dz',
+  instagram: 'Pyja_magic',
   facebook: 'Pyja Magic Algérie',
   freeShippingThreshold: 0,
   lowStockThresholdDefault: 3,

@@ -24,6 +24,7 @@ import { getSupabase, isSupabaseConfigured, supabase } from '../supabase/supabas
 import {
   sendNewsletterWelcome,
   sendWelcomePromoAfterOrder,
+  registerOrderMember,
   sendOrderNotificationToAdmin,
   sendOrderConfirmationToClient,
   sendOrderStatusUpdateToClient,
@@ -839,41 +840,6 @@ class StoreService {
         };
       });
 
-      // Detect changes compared to local cache and notify accordingly
-      const prevOrders = this.orders || [];
-      const statusLabels: Record<string, string> = {
-        en_attente: 'En attente',
-        nouvelle: 'En attente',
-        acceptee: 'Acceptée',
-        confirmee: 'Acceptée',
-        preparation: 'En cours de préparation',
-        arriver_yalidine: 'Arrivé chez Yalidine',
-        expediee: 'Arrivé chez Yalidine',
-        en_livraison: 'En cours de livraison',
-        livree: 'Livrée & Encaissée',
-        refusee: 'Refusée',
-        annulee: 'Annulée',
-        retour: 'Retour colis',
-      };
-      for (const newOrd of mappedOrders) {
-        const prev = prevOrders.find((p) => p.orderNumber === newOrd.orderNumber);
-        if (!prev) {
-          // New order coming from Supabase (external source)
-          sendOrderNotificationToAdmin(newOrd).catch(console.warn);
-          if (newOrd.email) sendOrderConfirmationToClient(newOrd).catch(console.warn);
-        } else {
-          if (prev.status !== newOrd.status) {
-            const label = statusLabels[newOrd.status] || newOrd.status;
-            sendOrderStatusUpdateToClient(newOrd, label).catch(console.warn);
-          }
-          if ((prev.email || '') !== (newOrd.email || '')) {
-            // Email changed in DB — notify admin and re-send confirmation to new address
-            sendOrderNotificationToAdmin(newOrd).catch(console.warn);
-            if (newOrd.email) sendOrderConfirmationToClient(newOrd).catch(console.warn);
-          }
-        }
-      }
-
       this.orders = mappedOrders;
       saveStorage(STORAGE_KEYS.ORDERS, this.orders);
       this.notify();
@@ -897,6 +863,7 @@ class StoreService {
 
     const order = this.orders[index];
     const prevStatus = order.status;
+    if (prevStatus === newStatus) return true;
     const prevUpdatedAt = order.updatedAt;
     order.status = newStatus;
     order.updatedAt = new Date().toISOString();
@@ -1001,6 +968,8 @@ class StoreService {
       this.notify();
       return false;
     }
+
+    sendOrderStatusUpdateToClient(order, 'Arrivé chez Yalidine').catch(console.warn);
 
     return true;
   }
@@ -1623,49 +1592,48 @@ class StoreService {
 
   // --- NEWSLETTER / MEMBRES ---
   async subscribeNewsletter(
-    email: string
+    email: string,
+    consent: boolean
   ): Promise<{ success: boolean; message: string }> {
     const clean = email.trim().toLowerCase();
+    if (!consent) {
+      return { success: false, message: 'Votre consentement est nécessaire pour recevoir la newsletter.' };
+    }
     if (!clean || !clean.includes('@')) {
       return { success: false, message: 'Adresse email invalide.' };
     }
 
     const existing = this.subscribers.find((s) => s.email === clean);
-    if (existing) {
-      return { success: true, message: 'Vous êtes déjà inscrite. Merci !' };
-    }
-
     const sub: Subscriber = {
-      id: generateUUID(),
+      id: existing?.id || generateUUID(),
       email: clean,
       source: 'newsletter',
-      isMember: false,
-      joinedAt: new Date().toISOString(),
+      isMember: existing?.isMember || false,
+      joinedAt: existing?.joinedAt || new Date().toISOString(),
+      marketingConsent: true,
+      unsubscribeToken: existing?.unsubscribeToken || generateUUID(),
+      marketingLastSentAt: existing?.marketingLastSentAt || new Date().toISOString(),
+      unsubscribedAt: null,
     };
-    this.subscribers.unshift(sub);
+
+    const signupResult = await sendNewsletterWelcome(clean);
+    if (!signupResult.success) {
+      return { success: false, message: signupResult.message || 'Inscription email impossible.' };
+    }
+
+    const index = this.subscribers.findIndex((subscriber) => subscriber.email === clean);
+    if (index >= 0) this.subscribers[index] = sub;
+    else this.subscribers.unshift(sub);
     saveStorage(STORAGE_KEYS.SUBSCRIBERS, this.subscribers);
     this.notify();
 
-    const client = getSupabase();
-    if (client) {
-      await client.from('subscribers').upsert(
-        {
-          id: sub.id,
-          email: clean,
-          source: 'newsletter',
-          is_member: false,
-          created_at: sub.joinedAt,
-        },
-        { onConflict: 'email' }
-      );
-    }
-
-    sendNewsletterWelcome(clean).catch(console.warn);
-
     return {
       success: true,
-      message:
-        'Inscription réussie ! Vous recevrez nos nouveautés et offres par email.',
+      message: signupResult.message === 'Déjà inscrite.'
+        ? 'Vous êtes déjà inscrite. Merci !'
+        : signupResult.emailSent === false
+          ? `Inscription enregistrée, mais l’email de bienvenue n’a pas pu être envoyé. ${signupResult.message || ''}`.trim()
+          : 'Inscription réussie ! Surveillez votre boîte email.',
     };
   }
 
@@ -1688,26 +1656,20 @@ class StoreService {
         source: 'order',
         isMember: true,
         joinedAt: new Date().toISOString(),
+        marketingConsent: false,
+        unsubscribeToken: generateUUID(),
       });
     }
     saveStorage(STORAGE_KEYS.SUBSCRIBERS, this.subscribers);
     this.notify();
 
+    const row = this.subscribers.find((s) => s.email === clean)!;
+    row.unsubscribeToken ||= generateUUID();
+    const memberSaved = await registerOrderMember(clean, firstName, orderNumber);
+    if (!memberSaved) console.warn('Server member registration failed for order:', orderNumber);
+
     const client = getSupabase();
     if (!client) return null;
-
-    const row = this.subscribers.find((s) => s.email === clean)!;
-    const { error: subscriberError } = await client.from('subscribers').upsert(
-      {
-        id: row.id,
-        email: clean,
-        source: 'order',
-        is_member: true,
-        created_at: row.joinedAt,
-      },
-      { onConflict: 'email' }
-    );
-    if (subscriberError) console.warn('Supabase subscriber upsert note:', subscriberError.message);
 
     const { data: couponCode, error } = await client.rpc('issue_first_purchase_coupon', {
       p_order_number: orderNumber,

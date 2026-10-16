@@ -8,17 +8,19 @@ export const NewsletterSection: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [consent, setConsent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     setLoading(true);
-    const res = await subscribeNewsletter(email);
+    const res = await subscribeNewsletter(email, consent);
     setLoading(false);
     setMessage(res.message);
     if (res.success) {
       setSubmitted(true);
       setEmail('');
+      setConsent(false);
     }
   };
 
@@ -43,7 +45,7 @@ export const NewsletterSection: React.FC = () => {
             <span>{message || 'Merci ! Surveillez votre boîte mail.'}</span>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="mt-6 flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
+          <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-3 max-w-md mx-auto">
             <div className="relative flex-1">
               <Mail className="w-4 h-4 text-[#A69398] absolute left-3.5 top-3.5" />
               <input
@@ -55,10 +57,20 @@ export const NewsletterSection: React.FC = () => {
                 className="w-full text-xs pl-10 pr-3 py-3 rounded-full border border-[#EBDDE1] bg-white focus:outline-none focus:border-[#BE395D]"
               />
             </div>
+            <label className="flex items-start gap-2 text-left text-[11px] text-[#70585F]">
+              <input
+                type="checkbox"
+                required
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="mt-0.5 accent-[#BE395D]"
+              />
+              <span>J’accepte de recevoir par email les nouveautés et offres de Pyja Magic. Je peux me désinscrire à tout moment.</span>
+            </label>
             <button
               type="submit"
               disabled={loading}
-              className="bg-[#BE395D] hover:bg-[#9E2B4B] disabled:opacity-60 text-white text-xs font-bold uppercase tracking-wider py-3 px-6 rounded-full transition-colors shadow-sm"
+              className="self-center bg-[#BE395D] hover:bg-[#9E2B4B] disabled:opacity-60 text-white text-xs font-bold uppercase tracking-wider py-3 px-6 rounded-full transition-colors shadow-sm"
             >
               {loading ? 'Inscription…' : "M'inscrire"}
             </button>

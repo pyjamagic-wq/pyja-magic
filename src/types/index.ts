@@ -165,6 +165,10 @@ export interface Subscriber {
   source: 'newsletter' | 'order';
   isMember: boolean;
   joinedAt: string;
+  marketingConsent: boolean;
+  unsubscribeToken: string;
+  marketingLastSentAt?: string | null;
+  unsubscribedAt?: string | null;
 }
 
 export interface Coupon {

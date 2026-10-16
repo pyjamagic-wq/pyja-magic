@@ -153,6 +153,10 @@ CREATE TABLE IF NOT EXISTS subscribers (
   email VARCHAR(255) UNIQUE NOT NULL,
   source VARCHAR(20) NOT NULL DEFAULT 'newsletter',
   is_member BOOLEAN DEFAULT FALSE,
+  marketing_consent BOOLEAN NOT NULL DEFAULT FALSE,
+  unsubscribe_token UUID NOT NULL DEFAULT uuid_generate_v4() UNIQUE,
+  marketing_last_sent_at TIMESTAMP WITH TIME ZONE,
+  unsubscribed_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -164,7 +168,8 @@ ALTER TABLE order_items DISABLE ROW LEVEL SECURITY;
 ALTER TABLE order_status_history DISABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_movements DISABLE ROW LEVEL SECURITY;
 ALTER TABLE wilayas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE subscribers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.subscribers FROM PUBLIC, anon, authenticated;
 
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
@@ -262,9 +267,14 @@ CREATE TABLE IF NOT EXISTS subscribers (
   email VARCHAR(255) UNIQUE NOT NULL,
   source VARCHAR(20) NOT NULL DEFAULT 'newsletter',
   is_member BOOLEAN DEFAULT FALSE,
+  marketing_consent BOOLEAN NOT NULL DEFAULT FALSE,
+  unsubscribe_token UUID NOT NULL DEFAULT uuid_generate_v4() UNIQUE,
+  marketing_last_sent_at TIMESTAMP WITH TIME ZONE,
+  unsubscribed_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-ALTER TABLE subscribers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.subscribers FROM PUBLIC, anon, authenticated;
 
 -- 4. (Optionnel) Bucket Storage pour upload de fichiers :
 -- Dans Supabase → Storage → New bucket → nom: product-images → Public: ON

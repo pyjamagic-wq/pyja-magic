@@ -85,6 +85,7 @@ export default function App() {
 
   // Confirmed / Tracked Order
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
+  const [orderNewsletterNotice, setOrderNewsletterNotice] = useState<string | undefined>();
   const [trackingOrderCode, setTrackingOrderCode] = useState<string>('');
 
   // Admin Auth state
@@ -124,8 +125,9 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleOrderSuccess = (order: Order) => {
+  const handleOrderSuccess = (order: Order, newsletterNotice?: string) => {
     setConfirmedOrder(order);
+    setOrderNewsletterNotice(newsletterNotice);
     setCheckoutOpen(false);
     setCurrentView('confirmation');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -354,6 +356,7 @@ export default function App() {
           confirmedOrder ? (
             <OrderConfirmationView
               order={confirmedOrder}
+              newsletterNotice={orderNewsletterNotice}
               onTrackOrder={handleTrackOrderFromConfirmation}
               onContinueShopping={() => handleNavigate('catalog')}
             />

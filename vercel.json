@@ -4,5 +4,8 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/marketing-cron", "schedule": "0 10 * * *" }
   ]
 }
